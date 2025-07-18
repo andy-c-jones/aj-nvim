@@ -282,7 +282,7 @@ end
 
 -- Key mappings
 vim.keymap.set("n", "<leader>t", FloatingTerminal, { noremap = true, silent = true, desc = "Toggle floating terminal" })
-vim.keymap.set("t", "<Esc>", function()
+vim.keymap.set("t", "<S-Esc>", function()
   if terminal_state.is_open then
     vim.api.nvim_win_close(terminal_state.win, false)
     terminal_state.is_open = false
@@ -509,4 +509,200 @@ local function setup_dynamic_statusline()
 end
 
 setup_dynamic_statusline()
+
+-- ============================================================================
+-- LSP 
+-- ============================================================================
+
+-- Function to find project root
+local function find_root(patterns)
+  local path = vim.fn.expand('%:p:h')
+  local root = vim.fs.find(patterns, { path = path, upward = true })[1]
+  return root and vim.fn.fnamemodify(root, ':h') or path
+end
+
+-- Shell LSP setup
+local function setup_shell_lsp()
+  vim.lsp.start({
+    name = 'bashls',
+    cmd = {'bash-language-server', 'start'},
+    filetypes = {'sh', 'bash', 'zsh'},
+    root_dir = find_root({'.git', 'Makefile'}),
+    settings = {
+      bashIde = {
+        globPattern = "*@(.sh|.inc|.bash|.command)"
+      }
+    }
+  })
+end
+
+local function setup_csharp_lsp()
+  vim.lsp.start({
+    name = 'roslyn',
+    cmd = {'Microsoft.CodeAnalysis.LanguageServer'},
+    filetypes = {'cs'},
+    root_dir = find_root({'.git', '*.sln', '*.csproj', 'Directory.Build.props'}),
+    settings = {
+      ['csharp|inlay_hints'] = {
+        csharp_enable_inlay_hints_for_implicit_object_creation = true,
+        csharp_enable_inlay_hints_for_implicit_variable_types = true,
+        csharp_enable_inlay_hints_for_lambda_parameter_types = true,
+        csharp_enable_inlay_hints_for_types = true,
+        dotnet_enable_inlay_hints_for_indexer_parameters = true,
+        dotnet_enable_inlay_hints_for_literal_parameters = true,
+        dotnet_enable_inlay_hints_for_object_creation_parameters = true,
+        dotnet_enable_inlay_hints_for_other_parameters = true,
+        dotnet_enable_inlay_hints_for_parameters = true,
+        dotnet_suppress_inlay_hints_for_parameters_that_differ_only_by_suffix = true,
+        dotnet_suppress_inlay_hints_for_parameters_that_match_argument_name = true,
+        dotnet_suppress_inlay_hints_for_parameters_that_match_method_intent = true,
+      }
+    }
+  })
+end
+
+local function setup_ruby_lsp()
+  vim.lsp.start({
+    name = 'ruby_lsp',
+    cmd = {'ruby-lsp'},
+    filetypes = {'ruby'},
+    root_dir = find_root({'.git', 'Gemfile', 'Rakefile', '.ruby-version'}),
+    settings = {
+      rubyLsp = {
+        enabledFeatures = {
+          codeActions = true,
+          diagnostics = true,
+          documentHighlights = true,
+          documentLink = true,
+          documentSymbols = true,
+          foldingRanges = true,
+          formatting = true,
+          hover = true,
+          inlayHint = true,
+          onTypeFormatting = true,
+          selectionRanges = true,
+          semanticHighlighting = true,
+        }
+      }
+    }
+  })
+end
+
+-- Auto-start LSPs based on filetype
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'sh,bash,zsh',
+  callback = setup_shell_lsp,
+  desc = 'Start shell LSP'
+})
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'cs',
+  callback = setup_csharp_lsp,
+  desc = 'Start C# Roslyn LSP'
+})
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'ruby',
+  callback = setup_ruby_lsp,
+  desc = 'Start Ruby LSP'
+})
+
+-- formatting
+local function format_code()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local filename = vim.api.nvim_buf_get_name(bufnr)
+  local filetype = vim.bo[bufnr].filetype
+  
+  -- Save cursor position
+  local cursor_pos = vim.api.nvim_win_get_cursor(0)
+  
+  if filetype == 'sh' or filetype == 'bash' or filename:match('%.sh$') then
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local content = table.concat(lines, '\n')
+    
+    local cmd = {'shfmt', '-i', '2', '-ci', '-sr'}  -- 2 spaces, case indent, space redirects
+    local result = vim.fn.system(cmd, content)
+    
+    if vim.v.shell_error == 0 then
+      local formatted_lines = vim.split(result, '\n')
+      if formatted_lines[#formatted_lines] == '' then
+        table.remove(formatted_lines)
+      end
+      vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, formatted_lines)
+      vim.api.nvim_win_set_cursor(0, cursor_pos)
+      print("Shell script formatted with shfmt")
+      return
+    else
+      print("shfmt error: " .. result)
+      return
+    end
+  end
+  
+  print("No formatter available for " .. filetype)
+end
+
+vim.api.nvim_create_user_command("FormatCode", format_code, {
+  desc = "Format current file"
+})
+
+vim.keymap.set('n', '<leader>fm', format_code, { desc = 'Format file' })
+
+-- LSP keymaps 
+vim.api.nvim_create_autocmd('LspAttach', {
+  callback = function(event)
+    local opts = {buffer = event.buf}
+
+    -- Navigation
+    vim.keymap.set('n', 'gD', vim.lsp.buf.definition, opts)
+    vim.keymap.set('n', 'gs', vim.lsp.buf.declaration, opts)
+    vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
+    vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
+
+    -- Information
+    vim.keymap.set('n', 'K', vim.lsp.buf.hover, opts)
+    vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, opts)
+
+    -- Code actions
+    vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, opts)
+    vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
+
+    -- Diagnostics
+    vim.keymap.set('n', '<leader>nd', vim.diagnostic.goto_next, opts)
+    vim.keymap.set('n', '<leader>pd', vim.diagnostic.goto_prev, opts)
+    vim.keymap.set('n', '<leader>d', vim.diagnostic.open_float, opts)
+    vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, opts)
+  end,
+})
+
+-- Better LSP UI
+vim.diagnostic.config({
+  virtual_text = { prefix = '●' },
+  signs = true,
+  underline = true,
+  update_in_insert = false,
+  severity_sort = true,
+})
+
+vim.diagnostic.config({
+  signs = {
+    text = {
+      [vim.diagnostic.severity.ERROR] = "✗",
+      [vim.diagnostic.severity.WARN] = "⚠",
+      [vim.diagnostic.severity.INFO] = "ℹ",
+      [vim.diagnostic.severity.HINT] = "💡",
+    }
+  }
+})
+
+vim.api.nvim_create_user_command('LspInfo', function()
+  local clients = vim.lsp.get_clients({ bufnr = 0 })
+  if #clients == 0 then
+    print("No LSP clients attached to current buffer")
+  else
+    for _, client in ipairs(clients) do
+      print("LSP: " .. client.name .. " (ID: " .. client.id .. ")")
+    end
+  end
+end, { desc = 'Show LSP client info' })
+
 
