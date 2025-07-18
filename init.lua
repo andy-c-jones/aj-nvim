@@ -374,7 +374,16 @@ vim.keymap.set('n', '<leader>bd', smart_close_buffer, { desc = 'Smart close buff
 
 -- Git branch function
 local function git_branch()
-  local branch = vim.fn.system("git branch --show-current 2>/dev/null | tr -d '\n'")
+  local cmd
+  if vim.fn.has("win32") == 1 then
+    cmd = "git branch --show-current 2>nul"
+  else
+    cmd = "git branch --show-current 2>/dev/null"
+  end
+  
+  local branch = vim.fn.system(cmd)
+  branch = vim.trim(branch)
+  
   if branch ~= "" then
     return "  " .. branch .. " "
   end
