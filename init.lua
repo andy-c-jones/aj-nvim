@@ -37,7 +37,7 @@ vim.opt.colorcolumn = "180"                        -- Show column at 100 charact
 vim.opt.showmatch = true                           -- Highlight matching brackets
 vim.opt.matchtime = 2                              -- How long to show matching bracket
 vim.opt.cmdheight = 1                              -- Command line height
-vim.opt.completeopt = "menuone,noinsert,noselect"  -- Completion options 
+vim.opt.completeopt = "menu,menuone,noselect"  -- Better completion options 
 vim.opt.showmode = false                           -- Don't show mode in command line 
 vim.opt.pumheight = 10                             -- Popup menu height 
 vim.opt.pumblend = 10                              -- Popup menu transparency 
@@ -196,6 +196,8 @@ local function show_cheatsheet()
     "   <leader>ca         Code actions",
     "   <leader>rn         Rename symbol",
     "   <leader>nd/pd      Next/Previous diagnostic",
+    "   <C-Space>          Trigger LSP completion (insert mode)",
+    "   <C-n>              Omnifunc completion (insert mode)",
     "",
     "🧪 TESTING",
     "   <leader>tr         Run tests",
@@ -281,6 +283,28 @@ end
 
 -- Keymap to show cheatsheet
 vim.keymap.set("n", "<leader>cc", show_cheatsheet, { desc = "Show hotkey cheatsheet" })
+
+-- Auto-completion setup
+local function setup_auto_completion()
+  -- Auto-trigger completion on typing
+  vim.api.nvim_create_autocmd("TextChangedI", {
+    callback = function()
+      local line = vim.fn.getline('.')
+      local col = vim.fn.col('.') - 1
+      
+      -- Check if we just typed a dot
+      if col > 0 and line:sub(col, col) == '.' and vim.bo.omnifunc ~= '' then
+        vim.defer_fn(function()
+          if vim.fn.mode() == 'i' then
+            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-x><C-o>', true, false, true), 'n', false)
+          end
+        end, 100)
+      end
+    end
+  })
+end
+
+setup_auto_completion()
 
 -- Return to last edit position when opening files
 vim.api.nvim_create_autocmd("BufReadPost", {
@@ -766,6 +790,11 @@ local function setup_csharp_lsp()
 end
 
 local function setup_ruby_lsp()
+  if vim.fn.executable('ruby-lsp') ~= 1 then
+    print("Ruby LSP not found. Please install: gem install ruby-lsp")
+    return
+  end
+  
   vim.lsp.start({
     name = 'ruby_lsp',
     cmd = {'ruby-lsp'},
@@ -792,7 +821,53 @@ local function setup_ruby_lsp()
   })
 end
 
--- Auto-start LSPs based on filetype
+-- Project detection and auto-loading LSPs (Ruby only)
+local lsp_loaded = {}
+
+local function detect_and_start_lsps()
+  local cwd = vim.fn.getcwd()
+  
+  -- Skip if we've already loaded LSPs for this directory
+  if lsp_loaded[cwd] then
+    return
+  end
+  
+  -- Find Ruby project files
+  local ruby_files = {'Gemfile', '.ruby-version', 'Rakefile'}
+  
+  -- Walk up directories to find project files
+  local current_dir = cwd
+  for _ = 1, 10 do  -- Limit to 10 levels up
+    -- Check for Ruby project
+    for _, file in ipairs(ruby_files) do
+      local filepath = vim.fs.joinpath(current_dir, file)
+      if vim.fn.filereadable(filepath) == 1 or vim.fn.isdirectory(filepath) == 1 then
+        setup_ruby_lsp()
+        lsp_loaded[cwd] = lsp_loaded[cwd] or {}
+        lsp_loaded[cwd].ruby = true
+        break
+      end
+    end
+    
+    -- Move up one directory
+    local parent = vim.fn.fnamemodify(current_dir, ':h')
+    if parent == current_dir or parent == '' or parent:match('^[A-Z]:$') then
+      break  -- Reached root (Unix / or Windows C:)
+    end
+    current_dir = parent
+  end
+  
+  -- Mark this directory as processed
+  lsp_loaded[cwd] = lsp_loaded[cwd] or {}
+end
+
+-- Auto-detect and start LSPs (Ruby only)
+vim.api.nvim_create_autocmd({'VimEnter', 'DirChanged'}, {
+  callback = detect_and_start_lsps,
+  desc = 'Auto-detect and start Ruby LSP based on project files'
+})
+
+-- File-specific LSPs
 vim.api.nvim_create_autocmd('FileType', {
   pattern = 'sh,bash,zsh',
   callback = setup_shell_lsp,
@@ -803,12 +878,6 @@ vim.api.nvim_create_autocmd('FileType', {
   pattern = 'cs',
   callback = setup_csharp_lsp,
   desc = 'Start C# Roslyn LSP'
-})
-
-vim.api.nvim_create_autocmd('FileType', {
-  pattern = 'ruby',
-  callback = setup_ruby_lsp,
-  desc = 'Start Ruby LSP'
 })
 
 -- Define test signs
@@ -921,10 +990,16 @@ vim.api.nvim_create_user_command("FormatCode", format_code, {
 vim.keymap.set('n', '<leader>fm', format_code, { desc = 'Format file' })
 vim.keymap.set('n', '<leader>tr', run_tests, { desc = 'Run tests' })
 
--- LSP keymaps 
+-- LSP keymaps and completion setup
 vim.api.nvim_create_autocmd('LspAttach', {
   callback = function(event)
     local opts = {buffer = event.buf}
+    local client = vim.lsp.get_client_by_id(event.data.client_id)
+
+    -- Enable completion if the server supports it
+    if client and client.server_capabilities.completionProvider then
+      vim.bo[event.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
+    end
 
     -- Navigation
     vim.keymap.set('n', 'gD', vim.lsp.buf.definition, opts)
@@ -939,6 +1014,10 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Code actions
     vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, opts)
     vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
+
+    -- Completion keymaps
+    vim.keymap.set('i', '<C-Space>', '<C-x><C-o>', { buffer = event.buf, desc = "LSP completion" })
+    vim.keymap.set('i', '<C-n>', '<C-x><C-o>', { buffer = event.buf, desc = "Omnifunc completion" })
 
     -- Diagnostics
     vim.keymap.set('n', '<leader>nd', vim.diagnostic.goto_next, opts)
