@@ -54,7 +54,7 @@ vim.opt.swapfile = false                           -- Don't create swap files
 vim.opt.undofile = true                            -- Persistent undo
 vim.opt.undodir = vim.fn.expand("~/.vim/undodir")  -- Undo directory
 vim.opt.updatetime = 300                           -- Faster completion
-vim.opt.timeoutlen = 500                           -- Key timeout duration
+vim.opt.timeoutlen = 1000                          -- Key timeout duration
 vim.opt.ttimeoutlen = 0                            -- Key code timeout
 vim.opt.autoread = true                            -- Auto reload files changed outside vim
 vim.opt.autowrite = false                          -- Don't auto save
@@ -84,6 +84,56 @@ vim.opt.foldlevel = 99                                  -- Start with all folds 
 vim.opt.splitbelow = true                          -- Horizontal splits go below
 vim.opt.splitright = true                          -- Vertical splits go right
 
+
+-- Normal mode mappings
+vim.keymap.set("n", "<leader>c", ":nohlsearch<CR>", { desc = "Clear search highlights" })
+
+-- Center screen when jumping
+vim.keymap.set("n", "n", "nzzzv", { desc = "Next search result (centered)" })
+vim.keymap.set("n", "N", "Nzzzv", { desc = "Previous search result (centered)" })
+vim.keymap.set("n", "<C-d>", "<C-d>zz", { desc = "Half page down (centered)" })
+vim.keymap.set("n", "<C-u>", "<C-u>zz", { desc = "Half page up (centered)" })
+
+-- Delete without yanking
+vim.keymap.set({ "n", "v" }, "<leader>d", '"_d', { desc = "Delete without yanking" })
+
+-- Buffer navigation
+vim.keymap.set("n", "<leader>bn", ":bnext<CR>", { desc = "Next buffer" })
+vim.keymap.set("n", "<leader>bp", ":bprevious<CR>", { desc = "Previous buffer" })
+
+-- Better window navigation
+vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Move to left window" })
+vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Move to bottom window" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Move to top window" })
+vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Move to right window" })
+
+-- Splitting & Resizing
+vim.keymap.set("n", "<leader>sv", ":vsplit<CR>", { desc = "Split window vertically" })
+vim.keymap.set("n", "<leader>sh", ":split<CR>", { desc = "Split window horizontally" })
+vim.keymap.set("n", "<C-Up>", ":resize +2<CR>", { desc = "Increase window height" })
+vim.keymap.set("n", "<C-Down>", ":resize -2<CR>", { desc = "Decrease window height" })
+vim.keymap.set("n", "<C-Left>", ":vertical resize -2<CR>", { desc = "Decrease window width" })
+vim.keymap.set("n", "<C-Right>", ":vertical resize +2<CR>", { desc = "Increase window width" })
+
+-- Move lines up/down
+vim.keymap.set("n", "<A-j>", ":m .+1<CR>==", { desc = "Move line down" })
+vim.keymap.set("n", "<A-k>", ":m .-2<CR>==", { desc = "Move line up" })
+vim.keymap.set("v", "<A-j>", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })
+vim.keymap.set("v", "<A-k>", ":m '<-2<CR>gv=gv", { desc = "Move selection up" })
+
+-- Better indenting in visual mode
+vim.keymap.set("v", "<", "<gv", { desc = "Indent left and reselect" })
+vim.keymap.set("v", ">", ">gv", { desc = "Indent right and reselect" })
+
+-- Quick file navigation
+vim.keymap.set("n", "<leader>e", ":Explore<CR>", { desc = "Open file explorer" })
+vim.keymap.set("n", "<leader>ff", ":find ", { desc = "Find file" })
+
+-- Better J behavior
+vim.keymap.set("n", "J", "mzJ`z", { desc = "Join lines and keep cursor position" })
+
+-- Quick config editing
+vim.keymap.set("n", "<leader>rc", ":e ~/.config/nvim/init.lua<CR>", { desc = "Edit config" })
 
 -- Return to last edit position when opening files
 vim.api.nvim_create_autocmd("BufReadPost", {
@@ -281,8 +331,8 @@ local function CloseFloatingTerminal()
 end
 
 -- Key mappings
-vim.keymap.set("n", "<leader>t", FloatingTerminal, { noremap = true, silent = true, desc = "Toggle floating terminal" })
-vim.keymap.set("t", "<leader><Esc>t", function()
+vim.keymap.set("n", "<leader>tt", FloatingTerminal, { noremap = true, silent = true, desc = "Toggle floating terminal" })
+vim.keymap.set("t", "<leader>tt", function()
   if terminal_state.is_open then
     vim.api.nvim_win_close(terminal_state.win, false)
     terminal_state.is_open = false
@@ -351,7 +401,7 @@ local function close_tabs_left()
 end
 
 -- Enhanced keybindings
-vim.keymap.set('n', '<leader>tO', open_file_in_tab, { desc = 'Open file in new tab' })
+vim.keymap.set('n', '<leader>to', open_file_in_tab, { desc = 'Open file in new tab' })
 vim.keymap.set('n', '<leader>td', duplicate_tab, { desc = 'Duplicate current tab' })
 vim.keymap.set('n', '<leader>tr', close_tabs_right, { desc = 'Close tabs to the right' })
 vim.keymap.set('n', '<leader>tL', close_tabs_left, { desc = 'Close tabs to the left' })
@@ -537,9 +587,16 @@ local function setup_shell_lsp()
 end
 
 local function setup_csharp_lsp()
+  local roslyn_path = vim.fn.expand("~/.vscode/extensions/ms-dotnettools.csharp-*/.roslyn/Microsoft.CodeAnalysis.LanguageServer.exe")
+  
+  if roslyn_path == "" then
+    print("Roslyn language server not found. Please install the C# extension for VS Code.")
+    return
+  end
+  
   vim.lsp.start({
     name = 'roslyn',
-    cmd = {'Microsoft.CodeAnalysis.LanguageServer'},
+    cmd = {roslyn_path, '--logLevel', 'Warning', '--extensionLogDirectory', vim.fn.stdpath('log'), '--stdio'},
     filetypes = {'cs'},
     root_dir = find_root({'.git', '*.sln', '*.csproj', 'Directory.Build.props'}),
     settings = {
@@ -607,6 +664,65 @@ vim.api.nvim_create_autocmd('FileType', {
   desc = 'Start Ruby LSP'
 })
 
+-- generic test runner
+local function run_tests()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local filename = vim.api.nvim_buf_get_name(bufnr)
+  local filetype = vim.bo[bufnr].filetype
+  local cmd = nil
+  
+  -- C# / .NET projects
+  if filetype == 'cs' or filename:match('%.cs$') then
+    local project_root = find_root({'.git', '*.sln', '*.csproj', 'Directory.Build.props'})
+    if not project_root then
+      print("No .NET project found")
+      return
+    end
+    local relative_path = vim.fn.fnamemodify(filename, ':.')
+    cmd = 'dotnet test --filter "FullyQualifiedName~' .. relative_path:gsub('%.cs$', '') .. '"'
+  end
+  
+  if not cmd then
+    print("No test runner configured for " .. filetype)
+    return
+  end
+  
+  -- Run test in background and capture result
+  local test_buf = nil
+  local test_win = nil
+  
+  vim.fn.jobstart(cmd, {
+    on_exit = function(_, exit_code)
+      if exit_code == 0 then
+        print("✅ Tests PASSED")
+        -- Auto-close test output window after 3 seconds if tests passed
+        if test_win and vim.api.nvim_win_is_valid(test_win) then
+          vim.defer_fn(function()
+            if vim.api.nvim_win_is_valid(test_win) then
+              vim.api.nvim_win_close(test_win, false)
+            end
+          end, 3000)
+        end
+      else
+        print("❌ Tests FAILED (exit code: " .. exit_code .. ")")
+        -- Keep test output open for failed tests
+      end
+    end,
+    stdout_buffered = true,
+    stderr_buffered = true,
+    on_stdout = function(_, data)
+      if data and #data > 0 then
+        vim.cmd('split')
+        test_buf = vim.api.nvim_create_buf(false, true)
+        test_win = vim.api.nvim_get_current_win()
+        vim.api.nvim_buf_set_lines(test_buf, 0, -1, false, data)
+        vim.api.nvim_win_set_buf(test_win, test_buf)
+        vim.bo[test_buf].filetype = 'testoutput'
+      end
+    end
+  })
+end
+
 -- formatting
 local function format_code()
   local bufnr = vim.api.nvim_get_current_buf()
@@ -638,6 +754,7 @@ local function format_code()
     end
   end
   
+  
   print("No formatter available for " .. filetype)
 end
 
@@ -646,6 +763,7 @@ vim.api.nvim_create_user_command("FormatCode", format_code, {
 })
 
 vim.keymap.set('n', '<leader>fm', format_code, { desc = 'Format file' })
+vim.keymap.set('n', '<leader>tr', run_tests, { desc = 'Run tests' })
 
 -- LSP keymaps 
 vim.api.nvim_create_autocmd('LspAttach', {

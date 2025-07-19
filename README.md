@@ -33,6 +33,40 @@ ln -s /path/to/aj-nvim ~/.config/nvim
 
 Replace `/path/to/aj-nvim` with your actual project location.
 
+## Language Server Setup
+
+### C# Language Server (OmniSharp)
+
+For C# development, install OmniSharp language server:
+
+#### Windows
+```powershell
+# Clone the repository
+git clone https://github.com/OmniSharp/omnisharp-roslyn.git
+cd omnisharp-roslyn
+
+# Build the project
+./build.ps1
+
+# Update the path in init.lua to point to your omnisharp-roslyn directory
+```
+
+#### Linux
+```bash
+# Download and install
+curl -sSL https://github.com/OmniSharp/omnisharp-roslyn/releases/latest/download/omnisharp-linux-x64.tar.gz | tar -xzf - -C /usr/local/bin/
+
+# Make executable
+chmod +x /usr/local/bin/omnisharp
+```
+
+#### macOS
+```bash
+brew install omnisharp
+```
+
+After installation, OmniSharp will automatically start when you open C# files.
+
 ## Usage
 
 - `<Space>t` - Toggle floating terminal (works in normal and terminal mode)
