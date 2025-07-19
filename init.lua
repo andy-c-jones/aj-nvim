@@ -625,7 +625,11 @@ local function file_type()
     vim = "[VIM]",
     sh = "[SH]",
     csharp = "[CSHARP]",
-    powershell = "[PWSH]"
+    powershell = "[PWSH]",
+    javascript = "[JS]",
+    typescript = "[TS]",
+    javascriptreact = "[JSX]",
+    typescriptreact = "[TSX]"
   }
 
   if ft == "" then
@@ -821,6 +825,63 @@ local function setup_ruby_lsp()
   })
 end
 
+local function setup_typescript_lsp()
+  if vim.fn.executable('typescript-language-server') ~= 1 then
+    print("TypeScript LSP not found. Please install: npm install -g typescript-language-server typescript")
+    return
+  end
+  
+  vim.lsp.start({
+    name = 'ts_ls',
+    cmd = {'typescript-language-server', '--stdio'},
+    filetypes = {'javascript', 'javascriptreact', 'typescript', 'typescriptreact'},
+    root_dir = find_root({'.git', 'package.json', 'tsconfig.json', 'jsconfig.json', '.eslintrc.*', '.prettierrc.*'}),
+    init_options = {
+      preferences = {
+        disableSuggestions = false,
+        quotePreference = 'double',
+        includeCompletionsForModuleExports = true,
+        includeCompletionsForImportStatements = true,
+        includeCompletionsWithSnippetText = true,
+        includeAutomaticOptionalChainCompletions = true,
+      }
+    },
+    settings = {
+      typescript = {
+        inlayHints = {
+          includeInlayParameterNameHints = 'literal',
+          includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+          includeInlayFunctionParameterTypeHints = true,
+          includeInlayVariableTypeHints = true,
+          includeInlayPropertyDeclarationTypeHints = true,
+          includeInlayFunctionLikeReturnTypeHints = true,
+          includeInlayEnumMemberValueHints = true,
+        },
+        suggest = {
+          includeCompletionsForModuleExports = true,
+        },
+        preferences = {
+          includePackageJsonAutoImports = 'auto',
+        }
+      },
+      javascript = {
+        inlayHints = {
+          includeInlayParameterNameHints = 'all',
+          includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+          includeInlayFunctionParameterTypeHints = true,
+          includeInlayVariableTypeHints = true,
+          includeInlayPropertyDeclarationTypeHints = true,
+          includeInlayFunctionLikeReturnTypeHints = true,
+          includeInlayEnumMemberValueHints = true,
+        },
+        suggest = {
+          includeCompletionsForModuleExports = true,
+        }
+      }
+    }
+  })
+end
+
 -- Project detection and auto-loading LSPs (Ruby only)
 local lsp_loaded = {}
 
@@ -878,6 +939,12 @@ vim.api.nvim_create_autocmd('FileType', {
   pattern = 'cs',
   callback = setup_csharp_lsp,
   desc = 'Start C# Roslyn LSP'
+})
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = {'javascript', 'javascriptreact', 'typescript', 'typescriptreact'},
+  callback = setup_typescript_lsp,
+  desc = 'Start TypeScript LSP'
 })
 
 -- Define test signs
@@ -975,6 +1042,45 @@ local function format_code()
       return
     else
       print("shfmt error: " .. result)
+      return
+    end
+  end
+  
+  -- JavaScript/TypeScript formatting with prettier
+  if filetype == 'javascript' or filetype == 'typescript' or 
+     filetype == 'javascriptreact' or filetype == 'typescriptreact' or
+     filename:match('%.js$') or filename:match('%.ts$') or 
+     filename:match('%.jsx$') or filename:match('%.tsx$') then
+    
+    if vim.fn.executable('prettier') == 1 then
+      local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+      local content = table.concat(lines, '\n')
+      
+      local parser = 'babel'
+      if filetype == 'typescript' or filename:match('%.ts$') then
+        parser = 'typescript'
+      elseif filetype == 'typescriptreact' or filename:match('%.tsx$') then
+        parser = 'typescript'
+      end
+      
+      local cmd = {'prettier', '--parser', parser, '--stdin-filepath', filename}
+      local result = vim.fn.system(cmd, content)
+      
+      if vim.v.shell_error == 0 then
+        local formatted_lines = vim.split(result, '\n')
+        if formatted_lines[#formatted_lines] == '' then
+          table.remove(formatted_lines)
+        end
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, formatted_lines)
+        vim.api.nvim_win_set_cursor(0, cursor_pos)
+        print("JS/TS formatted with prettier")
+        return
+      else
+        print("prettier error: " .. result)
+        return
+      end
+    else
+      print("prettier not found. Install with: npm install -g prettier")
       return
     end
   end
