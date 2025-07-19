@@ -664,6 +664,67 @@ vim.api.nvim_create_autocmd('FileType', {
   desc = 'Start Ruby LSP'
 })
 
+-- Define test signs
+vim.fn.sign_define("test_pass", { text = "✓", texthl = "DiffAdd" })
+vim.fn.sign_define("test_fail", { text = "✗", texthl = "DiffDelete" })
+
+-- Ensure sign column is always visible
+vim.opt.signcolumn = "yes"
+
+-- Function to parse test results and place signs
+local function parse_test_results_and_place_signs(bufnr, output)
+  -- Clear existing test signs
+  vim.fn.sign_unplace("test_signs", { buffer = bufnr })
+  
+  local file_content = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local signs_placed = 0
+  
+  print("Parsing test output for signs...")
+  
+  for _, line in ipairs(output) do
+    -- Debug: print lines that might contain test results
+    if line:match("Passed") or line:match("Failed") then
+      print("Test result line: " .. line)
+    end
+    
+    -- Parse dotnet test detailed output for method names and results
+    local test_method = line:match("([%w_]+)%(%)%s*%[")
+    local is_passed = line:match("Passed") ~= nil
+    local is_failed = line:match("Failed") ~= nil
+    
+    if test_method and (is_passed or is_failed) then
+      print("Found test method: " .. test_method .. " (passed: " .. tostring(is_passed) .. ")")
+      
+      -- Find the line number of the test method in the source file
+      for line_num, file_line in ipairs(file_content) do
+        if file_line:match("public.*" .. test_method .. "%s*%(") or 
+           file_line:match("%[Test%]") and file_content[line_num + 1] and 
+           file_content[line_num + 1]:match(test_method) then
+          
+          local sign_name = is_passed and "test_pass" or "test_fail"
+          vim.fn.sign_place(0, "test_signs", sign_name, bufnr, { lnum = line_num })
+          signs_placed = signs_placed + 1
+          print("Placed " .. sign_name .. " sign at line " .. line_num)
+          break
+        end
+      end
+    end
+  end
+  
+  print("Total signs placed: " .. signs_placed)
+  
+  -- Fallback: place test signs on any line with [Test] or [Fact] attributes
+  if signs_placed == 0 then
+    print("No signs placed via parsing, trying fallback method...")
+    for line_num, file_line in ipairs(file_content) do
+      if file_line:match("%[Test%]") or file_line:match("%[Fact%]") then
+        vim.fn.sign_place(0, "test_signs", "test_pass", bufnr, { lnum = line_num })
+        print("Placed fallback test sign at line " .. line_num)
+      end
+    end
+  end
+end
+
 -- generic test runner
 local function run_tests()
   local bufnr = vim.api.nvim_get_current_buf()
@@ -679,7 +740,8 @@ local function run_tests()
       return
     end
     local relative_path = vim.fn.fnamemodify(filename, ':.')
-    cmd = 'dotnet test --filter "FullyQualifiedName~' .. relative_path:gsub('%.cs$', '') .. '"'
+    -- Use detailed logger for better test result parsing
+    cmd = 'dotnet test --filter "FullyQualifiedName~' .. relative_path:gsub('%.cs$', '') .. '" --logger "console;verbosity=detailed"'
   end
   
   if not cmd then
@@ -690,11 +752,13 @@ local function run_tests()
   -- Run test in background and capture result
   local test_buf = nil
   local test_win = nil
+  local output_lines = {}
   
   vim.fn.jobstart(cmd, {
     on_exit = function(_, exit_code)
       if exit_code == 0 then
         print("✅ Tests PASSED")
+        parse_test_results_and_place_signs(bufnr, output_lines)
         -- Auto-close test output window after 3 seconds if tests passed
         if test_win and vim.api.nvim_win_is_valid(test_win) then
           vim.defer_fn(function()
@@ -705,6 +769,7 @@ local function run_tests()
         end
       else
         print("❌ Tests FAILED (exit code: " .. exit_code .. ")")
+        parse_test_results_and_place_signs(bufnr, output_lines)
         -- Keep test output open for failed tests
       end
     end,
@@ -712,6 +777,11 @@ local function run_tests()
     stderr_buffered = true,
     on_stdout = function(_, data)
       if data and #data > 0 then
+        -- Collect output for parsing
+        for _, line in ipairs(data) do
+          table.insert(output_lines, line)
+        end
+        
         vim.cmd('split')
         test_buf = vim.api.nvim_create_buf(false, true)
         test_win = vim.api.nvim_get_current_win()
