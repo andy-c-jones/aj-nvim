@@ -33,7 +33,7 @@ vim.opt.incsearch = true                           -- Show matches as you type
 -- Visual settings
 vim.opt.termguicolors = true                       -- Enable 24-bit colors
 vim.opt.signcolumn = "yes"                         -- Always show sign column
-vim.opt.colorcolumn = "100"                        -- Show column at 100 characters
+vim.opt.colorcolumn = "180"                        -- Show column at 100 characters
 vim.opt.showmatch = true                           -- Highlight matching brackets
 vim.opt.matchtime = 2                              -- How long to show matching bracket
 vim.opt.cmdheight = 1                              -- Command line height
@@ -134,6 +134,153 @@ vim.keymap.set("n", "J", "mzJ`z", { desc = "Join lines and keep cursor position"
 
 -- Quick config editing
 vim.keymap.set("n", "<leader>rc", ":e ~/.config/nvim/init.lua<CR>", { desc = "Edit config" })
+
+-- ============================================================================
+-- HOTKEY CHEATSHEET
+-- ============================================================================
+
+local cheatsheet_state = {
+  buf = nil,
+  win = nil,
+  is_open = false
+}
+
+local function show_cheatsheet()
+  -- If cheatsheet is already open, close it
+  if cheatsheet_state.is_open and vim.api.nvim_win_is_valid(cheatsheet_state.win) then
+    vim.api.nvim_win_close(cheatsheet_state.win, false)
+    cheatsheet_state.is_open = false
+    return
+  end
+
+  -- Create the cheatsheet content
+  local cheatsheet_content = {
+    "═══════════════════════════════════════════════════════════════════════════════",
+    "                              HOTKEY CHEATSHEET",
+    "═══════════════════════════════════════════════════════════════════════════════",
+    "",
+    "🗂️  NAVIGATION & FILES",
+    "   <leader>e          Open file explorer",
+    "   <leader>ff         Find file",
+    "   <leader>rc         Edit config",
+    "",
+    "🔍 SEARCH & MOVEMENT", 
+    "   <leader>c          Clear search highlights",
+    "   n / N              Next/Previous search (centered)",
+    "   <C-d> / <C-u>      Half page down/up (centered)",
+    "",
+    "📝 EDITING",
+    "   <leader>d          Delete without yanking",
+    "   J                  Join lines (keep cursor position)",
+    "   <A-j> / <A-k>      Move line down/up",
+    "   < / >              Indent left/right (visual mode)",
+    "",
+    "🪟 WINDOWS & SPLITS",
+    "   <C-h/j/k/l>        Navigate windows",
+    "   <leader>sv/sh      Split vertically/horizontally",
+    "   <C-arrows>         Resize windows",
+    "",
+    "📋 BUFFERS & TABS",
+    "   <leader>bn/bp      Next/Previous buffer",
+    "   <leader>bd         Smart close buffer/tab",
+    "   <leader>tn         New tab",
+    "   <leader>tx         Close tab",
+    "",
+    "🖥️  TERMINAL",
+    "   <leader>tt         Toggle floating terminal",
+    "",
+    "🔧 LSP (when available)",
+    "   gD                 Go to definition",
+    "   gr                 Go to references", 
+    "   K                  Show hover info",
+    "   <leader>ca         Code actions",
+    "   <leader>rn         Rename symbol",
+    "   <leader>nd/pd      Next/Previous diagnostic",
+    "",
+    "🧪 TESTING",
+    "   <leader>tr         Run tests",
+    "   <leader>fm         Format file",
+    "",
+    "❓ HELP",
+    "   <leader>cc         Show this cheatsheet",
+    "",
+    "═══════════════════════════════════════════════════════════════════════════════",
+    "                        Press <Esc> or <leader>cc to close",
+    "═══════════════════════════════════════════════════════════════════════════════"
+  }
+
+  -- Create buffer if it doesn't exist or is invalid
+  if not cheatsheet_state.buf or not vim.api.nvim_buf_is_valid(cheatsheet_state.buf) then
+    cheatsheet_state.buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_option(cheatsheet_state.buf, 'bufhidden', 'hide')
+    vim.api.nvim_buf_set_option(cheatsheet_state.buf, 'modifiable', false)
+    vim.api.nvim_buf_set_option(cheatsheet_state.buf, 'readonly', true)
+  end
+
+  -- Set the content
+  vim.api.nvim_buf_set_option(cheatsheet_state.buf, 'modifiable', true)
+  vim.api.nvim_buf_set_lines(cheatsheet_state.buf, 0, -1, false, cheatsheet_content)
+  vim.api.nvim_buf_set_option(cheatsheet_state.buf, 'modifiable', false)
+
+  -- Calculate window dimensions (make it large but not full screen)
+  local width = math.min(85, math.floor(vim.o.columns * 0.9))
+  local height = math.min(#cheatsheet_content + 2, math.floor(vim.o.lines * 0.9))
+  local row = math.floor((vim.o.lines - height) / 2)
+  local col = math.floor((vim.o.columns - width) / 2)
+
+  -- Create the floating window
+  cheatsheet_state.win = vim.api.nvim_open_win(cheatsheet_state.buf, true, {
+    relative = 'editor',
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = 'minimal',
+    border = 'rounded',
+  })
+
+  -- Set window options
+  vim.api.nvim_win_set_option(cheatsheet_state.win, 'winblend', 0)
+  vim.api.nvim_win_set_option(cheatsheet_state.win, 'winhighlight',
+    'Normal:FloatingCheatNormal,FloatBorder:FloatingCheatBorder')
+
+  -- Define highlight groups
+  vim.api.nvim_set_hl(0, "FloatingCheatNormal", { bg = "none" })
+  vim.api.nvim_set_hl(0, "FloatingCheatBorder", { bg = "none" })
+
+  cheatsheet_state.is_open = true
+
+  -- Set up keymaps to close the cheatsheet
+  local close_opts = { buffer = cheatsheet_state.buf, nowait = true, silent = true }
+  vim.keymap.set("n", "<Esc>", function()
+    if cheatsheet_state.is_open and vim.api.nvim_win_is_valid(cheatsheet_state.win) then
+      vim.api.nvim_win_close(cheatsheet_state.win, false)
+      cheatsheet_state.is_open = false
+    end
+  end, close_opts)
+  
+  vim.keymap.set("n", "<leader>cc", function()
+    if cheatsheet_state.is_open and vim.api.nvim_win_is_valid(cheatsheet_state.win) then
+      vim.api.nvim_win_close(cheatsheet_state.win, false)
+      cheatsheet_state.is_open = false
+    end
+  end, close_opts)
+
+  -- Auto-close on buffer leave
+  vim.api.nvim_create_autocmd("BufLeave", {
+    buffer = cheatsheet_state.buf,
+    callback = function()
+      if cheatsheet_state.is_open and vim.api.nvim_win_is_valid(cheatsheet_state.win) then
+        vim.api.nvim_win_close(cheatsheet_state.win, false)
+        cheatsheet_state.is_open = false
+      end
+    end,
+    once = true
+  })
+end
+
+-- Keymap to show cheatsheet
+vim.keymap.set("n", "<leader>cc", show_cheatsheet, { desc = "Show hotkey cheatsheet" })
 
 -- Return to last edit position when opening files
 vim.api.nvim_create_autocmd("BufReadPost", {
