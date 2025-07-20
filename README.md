@@ -1,11 +1,43 @@
 # AJ's Minimalist Neovim Configuration
 
-
 ## Features
 
-- Floating terminal toggle with `<Space>t`
-- Basic editor settings optimized for coding
+- Persistant floating terminal toggle with `<leader>tt`
+- Keybinding cheatsheet with `<leader>cc`
+- Basic editor settings optimized for performance
 - Minimal and fast configuration
+
+## Prerequisites
+
+### Windows
+
+Install required dependencies using winget:
+
+```powershell
+# Install ripgrep (required for telescope file searching)
+winget install BurntSushi.ripgrep.MSVC
+
+# Install zig (required for treesitter compilation)
+winget install zig.zig
+```
+
+### Ubuntu/Debian
+
+```bash
+# Install ripgrep
+sudo apt update
+sudo apt install ripgrep
+
+# Install zig
+sudo snap install zig --classic --beta
+```
+
+### Arch Linux
+
+```bash
+# Install ripgrep and zig
+sudo pacman -S ripgrep zig
+```
 
 ## Installation
 
@@ -35,43 +67,41 @@ Replace `/path/to/aj-nvim` with your actual project location.
 
 ## Language Server Setup
 
-### C# Language Server (OmniSharp)
+This configuration includes LSP support for multiple languages. Each LSP server needs to be installed separately.
 
-For C# development, install OmniSharp language server:
+### Lua Language Server
 
-#### Windows
-```powershell
-# Clone the repository
-git clone https://github.com/OmniSharp/omnisharp-roslyn.git
-cd omnisharp-roslyn
+**Installation**: Automatically installed via Mason when you first start Neovim.
 
-# Build the project
-./build.ps1
+### Bash Language Server
 
-# Update the path in init.lua to point to your omnisharp-roslyn directory
-```
-
-#### Linux
+**Installation**:
 ```bash
-# Download and install
-curl -sSL https://github.com/OmniSharp/omnisharp-roslyn/releases/latest/download/omnisharp-linux-x64.tar.gz | tar -xzf - -C /usr/local/bin/
-
-# Make executable
-chmod +x /usr/local/bin/omnisharp
+# Via npm (cross-platform)
+npm install -g bash-language-server
 ```
 
-#### macOS
+### C# Language Server (Roslyn)
+
+**Installation**:
 ```bash
-brew install omnisharp
+# Install via VS Code C# extension (recommended)
+code --install-extension ms-dotnettools.csharp
 ```
 
-After installation, OmniSharp will automatically start when you open C# files.
+### Ruby Language Server
 
-## Usage
+**Installation**:
+```bash
+# Install via RubyGems
+gem install ruby-lsp
+```
 
-- `<Space>t` - Toggle floating terminal (works in normal and terminal mode)
-- Terminal window is persistent and will remember your session
+### TypeScript/JavaScript Language Server
 
-## Configuration
+**Installation**:
+```bash
+# Install via npm
+npm install -g typescript-language-server typescript
+```
 
-The entire configuration is contained in `init.lua`. Modify this file to customize your setup.
