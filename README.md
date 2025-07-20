@@ -4,7 +4,7 @@
 
 - **Performance**: Optimized for speed through minimalism
 - **Navigation**: Telescope for fuzzy finding files, grep, and buffers
-- **Testing**: Neotest integration with support for .NET, Vitest, and RSpec
+- **Testing**: Neotest integration with support for .NET and Vitest
 - **LSP Support**: Multi-language LSP with auto-completion and diagnostics
 - **Auto-completion**: nvim-cmp auto-completion
 - **Terminal**: Persistent floating terminal toggle with `<leader>tt`
@@ -72,41 +72,17 @@ Replace `/path/to/aj-nvim` with your actual project location.
 
 ## Language Server Setup
 
-This configuration includes LSP support for multiple languages. Each LSP server needs to be installed separately.
+This configuration uses **Mason** for automatic LSP server management. All language servers are automatically installed when you first start Neovim.
 
-### Lua Language Server
+### Supported Languages
 
-**Installation**: Automatically installed via Mason when you first start Neovim.
+The following LSP servers are automatically installed and configured:
 
-### Bash Language Server
+- **Lua** (`lua_ls`) - Full Neovim integration with vim globals
+- **Bash/Shell** (`bashls`) - Script linting and completion  
+- **TypeScript/JavaScript** (`ts_ls`) - Full TS/JS support with inlay hints
+- **C#** (`csharp_ls`) - .NET development support
+- **PowerShell** (`powershell_es`) - PowerShell scripting support
 
-**Installation**:
-```bash
-# Via npm (cross-platform)
-npm install -g bash-language-server
-```
-
-### C# Language Server (Roslyn)
-
-**Installation**:
-```bash
-# Install via VS Code C# extension (recommended)
-code --install-extension ms-dotnettools.csharp
-```
-
-### Ruby Language Server
-
-**Installation**:
-```bash
-# Install via RubyGems
-gem install ruby-lsp
-```
-
-### TypeScript/JavaScript Language Server
-
-**Installation**:
-```bash
-# Install via npm
-npm install -g typescript-language-server typescript
-```
+No manual installation required - Mason handles everything automatically!
 

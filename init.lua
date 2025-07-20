@@ -39,12 +39,81 @@ local plugins = {
     end,
   },
   {
+    "neovim/nvim-lspconfig",
+    dependencies = { "williamboman/mason.nvim", "williamboman/mason-lspconfig.nvim" },
+  },
+  {
     "williamboman/mason-lspconfig.nvim",
-    dependencies = { "williamboman/mason.nvim" },
+    dependencies = { "williamboman/mason.nvim", "neovim/nvim-lspconfig" },
     config = function()
       require("mason-lspconfig").setup({
-        ensure_installed = { "lua_ls", "bashls" },
+        ensure_installed = {
+          "lua_ls",
+          "bashls",
+          "ts_ls",
+          "csharp_ls",
+          "powershell_es"
+        },
         automatic_installation = true,
+      })
+
+      -- Setup LSP servers automatically
+      require("mason-lspconfig").setup_handlers({
+        -- Default handler for all servers
+        function(server_name)
+          require("lspconfig")[server_name].setup({
+            capabilities = require("cmp_nvim_lsp").default_capabilities(),
+          })
+        end,
+
+        -- Custom handler for lua_ls
+        ["lua_ls"] = function()
+          require("lspconfig").lua_ls.setup({
+            capabilities = require("cmp_nvim_lsp").default_capabilities(),
+            settings = {
+              Lua = {
+                runtime = { version = "LuaJIT" },
+                diagnostics = { globals = { "vim" } },
+                workspace = {
+                  library = vim.api.nvim_get_runtime_file("", true),
+                  checkThirdParty = false,
+                },
+                telemetry = { enable = false },
+              },
+            },
+          })
+        end,
+
+        -- Custom handler for TypeScript
+        ["ts_ls"] = function()
+          require("lspconfig").ts_ls.setup({
+            capabilities = require("cmp_nvim_lsp").default_capabilities(),
+            settings = {
+              typescript = {
+                inlayHints = {
+                  includeInlayParameterNameHints = 'literal',
+                  includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+                  includeInlayFunctionParameterTypeHints = true,
+                  includeInlayVariableTypeHints = true,
+                  includeInlayPropertyDeclarationTypeHints = true,
+                  includeInlayFunctionLikeReturnTypeHints = true,
+                  includeInlayEnumMemberValueHints = true,
+                },
+              },
+              javascript = {
+                inlayHints = {
+                  includeInlayParameterNameHints = 'all',
+                  includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+                  includeInlayFunctionParameterTypeHints = true,
+                  includeInlayVariableTypeHints = true,
+                  includeInlayPropertyDeclarationTypeHints = true,
+                  includeInlayFunctionLikeReturnTypeHints = true,
+                  includeInlayEnumMemberValueHints = true,
+                },
+              }
+            }
+          })
+        end,
       })
     end,
   },
@@ -133,14 +202,12 @@ local plugins = {
       "nvim-treesitter/nvim-treesitter",
       "Nsidorenco/neotest-vstest",
       "marilari88/neotest-vitest",
-      "olimorris/neotest-rspec",
     },
     config = function()
       require("neotest").setup({
         adapters = {
           require("neotest-vstest"),
           require("neotest-vitest"),
-          require("neotest-rspec"),
         },
         output = {
           enabled = true,
@@ -475,14 +542,14 @@ local function show_cheatsheet()
     "🗂️  NAVIGATION & FILES",
     "   <leader>e          Open file explorer",
     "   <leader>ff         Find files (Telescope)",
-    "   <leader>fg         Live grep (Telescope)", 
+    "   <leader>fg         Live grep (Telescope)",
     "   <leader>fb         Find buffers (Telescope)",
     "   <leader>fr         Recent files (Telescope)",
     "   <leader>fh         Help tags (Telescope)",
     "   <leader>fs         Find string under cursor",
     "   <leader>rc         Edit config",
     "",
-    "🔍 SEARCH & MOVEMENT", 
+    "🔍 SEARCH & MOVEMENT",
     "   <leader>c          Clear search highlights",
     "   n / N              Next/Previous search (centered)",
     "   <C-d> / <C-u>      Half page down/up (centered)",
@@ -509,7 +576,7 @@ local function show_cheatsheet()
     "",
     "🔧 LSP (when available)",
     "   gD                 Go to definition",
-    "   gr                 Go to references", 
+    "   gr                 Go to references",
     "   K                  Show hover info",
     "   <leader>ca         Code actions",
     "   <leader>rn         Rename symbol",
@@ -585,7 +652,7 @@ local function show_cheatsheet()
       cheatsheet_state.is_open = false
     end
   end, close_opts)
-  
+
   vim.keymap.set("n", "<leader>cc", function()
     if cheatsheet_state.is_open and vim.api.nvim_win_is_valid(cheatsheet_state.win) then
       vim.api.nvim_win_close(cheatsheet_state.win, false)
@@ -637,7 +704,7 @@ vim.api.nvim_create_autocmd("FileType", {
 
 vim.api.nvim_create_autocmd("FileType", {
   group = augroup,
-  pattern = { "javascript", "typescript", "json", "html", "css", "rb" },
+  pattern = { "javascript", "typescript", "json", "html", "css" },
   callback = function()
     vim.opt_local.tabstop = 2
     vim.opt_local.shiftwidth = 2
@@ -908,10 +975,10 @@ local function git_branch()
   else
     cmd = "git branch --show-current 2>/dev/null"
   end
-  
+
   local branch = vim.fn.system(cmd)
   branch = vim.trim(branch)
-  
+
   if branch ~= "" then
     return "  " .. branch .. " "
   end
@@ -1042,217 +1109,6 @@ end
 
 setup_dynamic_statusline()
 
--- ============================================================================
--- LSP 
--- ============================================================================
-
--- Function to find project root
-local function find_root(patterns)
-  local path = vim.fn.expand('%:p:h')
-  local root = vim.fs.find(patterns, { path = path, upward = true })[1]
-  return root and vim.fn.fnamemodify(root, ':h') or path
-end
-
--- Shell LSP setup
-local function setup_shell_lsp()
-  vim.lsp.start({
-    name = 'bashls',
-    cmd = {'bash-language-server', 'start'},
-    filetypes = {'sh', 'bash', 'zsh'},
-    root_dir = find_root({'.git', 'Makefile'}),
-    settings = {
-      bashIde = {
-        globPattern = "*@(.sh|.inc|.bash|.command)"
-      }
-    }
-  })
-end
-
-local function setup_csharp_lsp()
-  local roslyn_path = vim.fn.expand("~/.vscode/extensions/ms-dotnettools.csharp-*/.roslyn/Microsoft.CodeAnalysis.LanguageServer.exe")
-  
-  if roslyn_path == "" then
-    print("Roslyn language server not found. Please install the C# extension for VS Code.")
-    return
-  end
-  
-  vim.lsp.start({
-    name = 'roslyn',
-    cmd = {roslyn_path, '--logLevel', 'Warning', '--extensionLogDirectory', vim.fn.stdpath('log'), '--stdio'},
-    filetypes = {'cs'},
-    root_dir = find_root({'.git', '*.sln', '*.csproj', 'Directory.Build.props'}),
-    settings = {
-      ['csharp|inlay_hints'] = {
-        csharp_enable_inlay_hints_for_implicit_object_creation = true,
-        csharp_enable_inlay_hints_for_implicit_variable_types = true,
-        csharp_enable_inlay_hints_for_lambda_parameter_types = true,
-        csharp_enable_inlay_hints_for_types = true,
-        dotnet_enable_inlay_hints_for_indexer_parameters = true,
-        dotnet_enable_inlay_hints_for_literal_parameters = true,
-        dotnet_enable_inlay_hints_for_object_creation_parameters = true,
-        dotnet_enable_inlay_hints_for_other_parameters = true,
-        dotnet_enable_inlay_hints_for_parameters = true,
-        dotnet_suppress_inlay_hints_for_parameters_that_differ_only_by_suffix = true,
-        dotnet_suppress_inlay_hints_for_parameters_that_match_argument_name = true,
-        dotnet_suppress_inlay_hints_for_parameters_that_match_method_intent = true,
-      }
-    }
-  })
-end
-
-local function setup_ruby_lsp()
-  if vim.fn.executable('ruby-lsp') ~= 1 then
-    print("Ruby LSP not found. Please install: gem install ruby-lsp")
-    return
-  end
-  
-  vim.lsp.start({
-    name = 'ruby_lsp',
-    cmd = {'ruby-lsp'},
-    filetypes = {'ruby'},
-    root_dir = find_root({'.git', 'Gemfile', 'Rakefile', '.ruby-version'}),
-    settings = {
-      rubyLsp = {
-        enabledFeatures = {
-          codeActions = true,
-          diagnostics = true,
-          documentHighlights = true,
-          documentLink = true,
-          documentSymbols = true,
-          foldingRanges = true,
-          formatting = true,
-          hover = true,
-          inlayHint = true,
-          onTypeFormatting = true,
-          selectionRanges = true,
-          semanticHighlighting = true,
-        }
-      }
-    }
-  })
-end
-
-local function setup_typescript_lsp()
-  if vim.fn.executable('typescript-language-server') ~= 1 then
-    print("TypeScript LSP not found. Please install: npm install -g typescript-language-server typescript")
-    return
-  end
-  
-  vim.lsp.start({
-    name = 'ts_ls',
-    cmd = {'typescript-language-server', '--stdio'},
-    filetypes = {'javascript', 'javascriptreact', 'typescript', 'typescriptreact'},
-    root_dir = find_root({'.git', 'package.json', 'tsconfig.json', 'jsconfig.json', '.eslintrc.*', '.prettierrc.*'}),
-    init_options = {
-      preferences = {
-        disableSuggestions = false,
-        quotePreference = 'double',
-        includeCompletionsForModuleExports = true,
-        includeCompletionsForImportStatements = true,
-        includeCompletionsWithSnippetText = true,
-        includeAutomaticOptionalChainCompletions = true,
-      }
-    },
-    settings = {
-      typescript = {
-        inlayHints = {
-          includeInlayParameterNameHints = 'literal',
-          includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-          includeInlayFunctionParameterTypeHints = true,
-          includeInlayVariableTypeHints = true,
-          includeInlayPropertyDeclarationTypeHints = true,
-          includeInlayFunctionLikeReturnTypeHints = true,
-          includeInlayEnumMemberValueHints = true,
-        },
-        suggest = {
-          includeCompletionsForModuleExports = true,
-        },
-        preferences = {
-          includePackageJsonAutoImports = 'auto',
-        }
-      },
-      javascript = {
-        inlayHints = {
-          includeInlayParameterNameHints = 'all',
-          includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-          includeInlayFunctionParameterTypeHints = true,
-          includeInlayVariableTypeHints = true,
-          includeInlayPropertyDeclarationTypeHints = true,
-          includeInlayFunctionLikeReturnTypeHints = true,
-          includeInlayEnumMemberValueHints = true,
-        },
-        suggest = {
-          includeCompletionsForModuleExports = true,
-        }
-      }
-    }
-  })
-end
-
--- Project detection and auto-loading LSPs (Ruby only)
-local lsp_loaded = {}
-
-local function detect_and_start_lsps()
-  local cwd = vim.fn.getcwd()
-  
-  -- Skip if we've already loaded LSPs for this directory
-  if lsp_loaded[cwd] then
-    return
-  end
-  
-  -- Find Ruby project files
-  local ruby_files = {'Gemfile', '.ruby-version', 'Rakefile'}
-  
-  -- Walk up directories to find project files
-  local current_dir = cwd
-  for _ = 1, 10 do  -- Limit to 10 levels up
-    -- Check for Ruby project
-    for _, file in ipairs(ruby_files) do
-      local filepath = vim.fs.joinpath(current_dir, file)
-      if vim.fn.filereadable(filepath) == 1 or vim.fn.isdirectory(filepath) == 1 then
-        setup_ruby_lsp()
-        lsp_loaded[cwd] = lsp_loaded[cwd] or {}
-        lsp_loaded[cwd].ruby = true
-        break
-      end
-    end
-    
-    -- Move up one directory
-    local parent = vim.fn.fnamemodify(current_dir, ':h')
-    if parent == current_dir or parent == '' or parent:match('^[A-Z]:$') then
-      break  -- Reached root (Unix / or Windows C:)
-    end
-    current_dir = parent
-  end
-  
-  -- Mark this directory as processed
-  lsp_loaded[cwd] = lsp_loaded[cwd] or {}
-end
-
--- Auto-detect and start LSPs (Ruby only)
-vim.api.nvim_create_autocmd({'VimEnter', 'DirChanged'}, {
-  callback = detect_and_start_lsps,
-  desc = 'Auto-detect and start Ruby LSP based on project files'
-})
-
--- File-specific LSPs
-vim.api.nvim_create_autocmd('FileType', {
-  pattern = 'sh,bash,zsh',
-  callback = setup_shell_lsp,
-  desc = 'Start shell LSP'
-})
-
-vim.api.nvim_create_autocmd('FileType', {
-  pattern = 'cs',
-  callback = setup_csharp_lsp,
-  desc = 'Start C# Roslyn LSP'
-})
-
-vim.api.nvim_create_autocmd('FileType', {
-  pattern = {'javascript', 'javascriptreact', 'typescript', 'typescriptreact'},
-  callback = setup_typescript_lsp,
-  desc = 'Start TypeScript LSP'
-})
 
 -- Define test signs
 vim.fn.sign_define("test_pass", { text = "✓", texthl = "DiffAdd" })
@@ -1268,17 +1124,17 @@ local function format_code()
   local bufnr = vim.api.nvim_get_current_buf()
   local filename = vim.api.nvim_buf_get_name(bufnr)
   local filetype = vim.bo[bufnr].filetype
-  
+
   -- Save cursor position
   local cursor_pos = vim.api.nvim_win_get_cursor(0)
-  
+
   if filetype == 'sh' or filetype == 'bash' or filename:match('%.sh$') then
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
     local content = table.concat(lines, '\n')
-    
+
     local cmd = {'shfmt', '-i', '2', '-ci', '-sr'}  -- 2 spaces, case indent, space redirects
     local result = vim.fn.system(cmd, content)
-    
+
     if vim.v.shell_error == 0 then
       local formatted_lines = vim.split(result, '\n')
       if formatted_lines[#formatted_lines] == '' then
@@ -1293,27 +1149,27 @@ local function format_code()
       return
     end
   end
-  
+
   -- JavaScript/TypeScript formatting with prettier
-  if filetype == 'javascript' or filetype == 'typescript' or 
+  if filetype == 'javascript' or filetype == 'typescript' or
      filetype == 'javascriptreact' or filetype == 'typescriptreact' or
-     filename:match('%.js$') or filename:match('%.ts$') or 
+     filename:match('%.js$') or filename:match('%.ts$') or
      filename:match('%.jsx$') or filename:match('%.tsx$') then
-    
+
     if vim.fn.executable('prettier') == 1 then
       local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
       local content = table.concat(lines, '\n')
-      
+
       local parser = 'babel'
       if filetype == 'typescript' or filename:match('%.ts$') then
         parser = 'typescript'
       elseif filetype == 'typescriptreact' or filename:match('%.tsx$') then
         parser = 'typescript'
       end
-      
+
       local cmd = {'prettier', '--parser', parser, '--stdin-filepath', filename}
       local result = vim.fn.system(cmd, content)
-      
+
       if vim.v.shell_error == 0 then
         local formatted_lines = vim.split(result, '\n')
         if formatted_lines[#formatted_lines] == '' then
@@ -1332,8 +1188,8 @@ local function format_code()
       return
     end
   end
-  
-  
+
+
   print("No formatter available for " .. filetype)
 end
 
