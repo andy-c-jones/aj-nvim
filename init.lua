@@ -39,10 +39,6 @@ local plugins = {
     end,
   },
   {
-    "neovim/nvim-lspconfig",
-    dependencies = { "williamboman/mason.nvim", "williamboman/mason-lspconfig.nvim" },
-  },
-  {
     "williamboman/mason-lspconfig.nvim",
     dependencies = { "williamboman/mason.nvim", "neovim/nvim-lspconfig" },
     config = function()
@@ -51,12 +47,19 @@ local plugins = {
           "lua_ls",
           "bashls",
           "ts_ls",
-          "csharp_ls",
+          "omnisharp",
           "powershell_es"
         },
         automatic_installation = true,
       })
+    end,
+  },
 
+  -- LSP Configuration
+  {
+    "neovim/nvim-lspconfig",
+    dependencies = { "williamboman/mason-lspconfig.nvim" },
+    config = function()
       -- Setup LSP servers automatically
       require("mason-lspconfig").setup_handlers({
         -- Default handler for all servers

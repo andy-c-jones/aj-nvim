@@ -81,7 +81,7 @@ The following LSP servers are automatically installed and configured:
 - **Lua** (`lua_ls`) - Full Neovim integration with vim globals
 - **Bash/Shell** (`bashls`) - Script linting and completion  
 - **TypeScript/JavaScript** (`ts_ls`) - Full TS/JS support with inlay hints
-- **C#** (`csharp_ls`) - .NET development support
+- **C#** (`omnisharp`) - .NET development support
 - **PowerShell** (`powershell_es`) - PowerShell scripting support
 
 No manual installation required - Mason handles everything automatically!
