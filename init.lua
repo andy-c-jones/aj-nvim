@@ -122,6 +122,156 @@ local plugins = {
       })
     end,
   },
+
+  -- Neotest for testing
+  {
+    "nvim-neotest/neotest",
+    dependencies = {
+      "nvim-neotest/nvim-nio",
+      "nvim-lua/plenary.nvim",
+      "antoinemadec/FixCursorHold.nvim",
+      "nvim-treesitter/nvim-treesitter",
+      "Nsidorenco/neotest-vstest",
+      "marilari88/neotest-vitest",
+      "olimorris/neotest-rspec",
+    },
+    config = function()
+      require("neotest").setup({
+        adapters = {
+          require("neotest-vstest"),
+          require("neotest-vitest"),
+          require("neotest-rspec"),
+        },
+        output = {
+          enabled = true,
+          open_on_run = "short",
+        },
+        quickfix = {
+          enabled = true,
+          open = false,
+        },
+        status = {
+          enabled = true,
+          signs = true,
+          virtual_text = false,
+        },
+        icons = {
+          running = "🔄",
+          passed = "✓",
+          failed = "✗",
+          skipped = "⏭",
+        },
+      })
+    end,
+  },
+
+  -- nvim-cmp completion
+  {
+    "hrsh7th/nvim-cmp",
+    event = "InsertEnter",
+    dependencies = {
+      "hrsh7th/cmp-nvim-lsp",
+      "hrsh7th/cmp-buffer",
+      "hrsh7th/cmp-path",
+      "hrsh7th/cmp-cmdline",
+      "L3MON4D3/LuaSnip",
+      "saadparwaiz1/cmp_luasnip",
+    },
+    config = function()
+      local cmp = require("cmp")
+      local luasnip = require("luasnip")
+
+      cmp.setup({
+        window = {
+          completion = {
+            border = "rounded",
+            winhighlight = "Normal:Normal,FloatBorder:CmpBorder,CursorLine:PmenuSel,Search:None",
+            scrollbar = false,
+          },
+          documentation = {
+            border = "rounded",
+            winhighlight = "Normal:Normal,FloatBorder:CmpDocBorder",
+          },
+        },
+        formatting = {
+          fields = { "kind", "abbr", "menu" },
+          format = function(entry, vim_item)
+            vim_item.menu = ({
+              nvim_lsp = "[LSP]",
+              luasnip = "[Snippet]",
+              buffer = "[Buffer]",
+              path = "[Path]",
+            })[entry.source.name]
+            return vim_item
+          end,
+        },
+        snippet = {
+          expand = function(args)
+            luasnip.lsp_expand(args.body)
+          end,
+        },
+        mapping = cmp.mapping.preset.insert({
+          ["<C-b>"] = cmp.mapping.scroll_docs(-4),
+          ["<C-f>"] = cmp.mapping.scroll_docs(4),
+          ["<C-Space>"] = cmp.mapping.complete(),
+          ["<C-e>"] = cmp.mapping.abort(),
+          ["<CR>"] = cmp.mapping.confirm({ select = true }),
+          ["<Tab>"] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.select_next_item()
+            elseif luasnip.expand_or_jumpable() then
+              luasnip.expand_or_jump()
+            else
+              fallback()
+            end
+          end, { "i", "s" }),
+          ["<S-Tab>"] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.select_prev_item()
+            elseif luasnip.jumpable(-1) then
+              luasnip.jump(-1)
+            else
+              fallback()
+            end
+          end, { "i", "s" }),
+        }),
+        sources = cmp.config.sources({
+          { name = "nvim_lsp" },
+          { name = "luasnip" },
+        }, {
+          { name = "buffer" },
+          { name = "path" },
+        }),
+      })
+
+      -- Set configuration for specific filetype.
+      cmp.setup.filetype("gitcommit", {
+        sources = cmp.config.sources({
+          { name = "cmp_git" },
+        }, {
+          { name = "buffer" },
+        })
+      })
+
+      -- Use buffer source for `/` and `?`
+      cmp.setup.cmdline({ "/", "?" }, {
+        mapping = cmp.mapping.preset.cmdline(),
+        sources = {
+          { name = "buffer" }
+        }
+      })
+
+      -- Use cmdline & path source for ':'
+      cmp.setup.cmdline(":", {
+        mapping = cmp.mapping.preset.cmdline(),
+        sources = cmp.config.sources({
+          { name = "path" }
+        }, {
+          { name = "cmdline" }
+        })
+      })
+    end,
+  },
 }
 
 -- Setup lazy.nvim
@@ -147,6 +297,13 @@ vim.cmd.colorscheme("unokai")
 vim.api.nvim_set_hl(0, "Normal", { bg = "none" })
 vim.api.nvim_set_hl(0, "NormalNC", { bg = "none" })
 vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "none" })
+
+-- nvim-cmp styling to match Monokai theme
+vim.api.nvim_set_hl(0, "CmpBorder", { bg = "none", fg = "#75715e" })
+vim.api.nvim_set_hl(0, "CmpDocBorder", { bg = "none", fg = "#75715e" })
+vim.api.nvim_set_hl(0, "PmenuSel", { bg = "#49483e", fg = "#f8f8f2" })
+vim.api.nvim_set_hl(0, "CmpItemAbbrMatch", { fg = "#a6e22e", bold = true })
+vim.api.nvim_set_hl(0, "CmpItemAbbrMatchFuzzy", { fg = "#a6e22e", bold = true })
 
 -- Basic settings
 vim.opt.number = true                              -- Line numbers
@@ -273,6 +430,15 @@ vim.keymap.set("n", "<leader>fh", "<cmd>Telescope help_tags<cr>", { desc = "Help
 vim.keymap.set("n", "<leader>fr", "<cmd>Telescope oldfiles<cr>", { desc = "Recent files" })
 vim.keymap.set("n", "<leader>fs", "<cmd>Telescope grep_string<cr>", { desc = "Find string under cursor" })
 
+-- Neotest keymaps
+vim.keymap.set("n", "<leader>tr", function() require("neotest").run.run() end, { desc = "Run nearest test" })
+vim.keymap.set("n", "<leader>tf", function() require("neotest").run.run(vim.fn.expand("%")) end, { desc = "Run test file" })
+vim.keymap.set("n", "<leader>ts", function() require("neotest").run.run(vim.fn.getcwd()) end, { desc = "Run test suite" })
+vim.keymap.set("n", "<leader>to", function() require("neotest").output.open({ enter = true }) end, { desc = "Open test output" })
+vim.keymap.set("n", "<leader>tO", function() require("neotest").output_panel.toggle() end, { desc = "Toggle test output panel" })
+vim.keymap.set("n", "<leader>tS", function() require("neotest").summary.toggle() end, { desc = "Toggle test summary" })
+vim.keymap.set("n", "<leader>tw", function() require("neotest").watch.toggle() end, { desc = "Toggle test watch mode" })
+
 -- Keep file explorer for directory browsing
 vim.keymap.set("n", "<leader>e", ":Explore<CR>", { desc = "Open file explorer" })
 
@@ -348,11 +514,18 @@ local function show_cheatsheet()
     "   <leader>ca         Code actions",
     "   <leader>rn         Rename symbol",
     "   <leader>nd/pd      Next/Previous diagnostic",
-    "   <C-Space>          Trigger LSP completion (insert mode)",
-    "   <C-n>              Omnifunc completion (insert mode)",
+    "   <C-Space>          Trigger completion (insert mode)",
+    "   <Tab>/<S-Tab>      Navigate completion menu",
+    "   <CR>               Confirm completion",
     "",
-    "🧪 TESTING",
-    "   <leader>tr         Run tests",
+    "🧪 TESTING (Neotest)",
+    "   <leader>tr         Run nearest test",
+    "   <leader>tf         Run test file",
+    "   <leader>ts         Run test suite",
+    "   <leader>to         Open test output",
+    "   <leader>tO         Toggle test output panel",
+    "   <leader>tS         Toggle test summary",
+    "   <leader>tw         Toggle test watch mode",
     "   <leader>fm         Format file",
     "",
     "❓ HELP",
@@ -436,27 +609,6 @@ end
 -- Keymap to show cheatsheet
 vim.keymap.set("n", "<leader>cc", show_cheatsheet, { desc = "Show hotkey cheatsheet" })
 
--- Auto-completion setup
-local function setup_auto_completion()
-  -- Auto-trigger completion on typing
-  vim.api.nvim_create_autocmd("TextChangedI", {
-    callback = function()
-      local line = vim.fn.getline('.')
-      local col = vim.fn.col('.') - 1
-      
-      -- Check if we just typed a dot
-      if col > 0 and line:sub(col, col) == '.' and vim.bo.omnifunc ~= '' then
-        vim.defer_fn(function()
-          if vim.fn.mode() == 'i' then
-            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-x><C-o>', true, false, true), 'n', false)
-          end
-        end, 100)
-      end
-    end
-  })
-end
-
-setup_auto_completion()
 
 -- Create autocmd group
 local augroup = vim.api.nvim_create_augroup("UserConfig", { clear = true })
@@ -1110,65 +1262,6 @@ vim.fn.sign_define("test_fail", { text = "✗", texthl = "DiffDelete" })
 vim.opt.signcolumn = "yes"
 
 
--- generic test runner
-local function run_tests()
-  local bufnr = vim.api.nvim_get_current_buf()
-  local filename = vim.api.nvim_buf_get_name(bufnr)
-  local filetype = vim.bo[bufnr].filetype
-  local cmd = nil
-  
-  -- C# / .NET projects
-  if filetype == 'cs' or filename:match('%.cs$') then
-    local project_root = find_root({'.git', '*.sln', '*.csproj', 'Directory.Build.props'})
-    if not project_root then
-      print("No .NET project found")
-      return
-    end
-    local relative_path = vim.fn.fnamemodify(filename, ':.')
-    -- Use detailed logger for better test result parsing
-    cmd = 'dotnet test --filter "FullyQualifiedName~' .. relative_path:gsub('%.cs$', '') .. '" --logger "console;verbosity=detailed"'
-  end
-  
-  if not cmd then
-    print("No test runner configured for " .. filetype)
-    return
-  end
-  
-  -- Run test in background and show output
-  local test_buf = nil
-  local test_win = nil
-  
-  vim.fn.jobstart(cmd, {
-    on_exit = function(_, exit_code)
-      if exit_code == 0 then
-        print("✅ Tests PASSED")
-        -- Auto-close test output window after 3 seconds if tests passed
-        if test_win and vim.api.nvim_win_is_valid(test_win) then
-          vim.defer_fn(function()
-            if vim.api.nvim_win_is_valid(test_win) then
-              vim.api.nvim_win_close(test_win, false)
-            end
-          end, 3000)
-        end
-      else
-        print("❌ Tests FAILED (exit code: " .. exit_code .. ")")
-        -- Keep test output open for failed tests
-      end
-    end,
-    stdout_buffered = true,
-    stderr_buffered = true,
-    on_stdout = function(_, data)
-      if data and #data > 0 then
-        vim.cmd('split')
-        test_buf = vim.api.nvim_create_buf(false, true)
-        test_win = vim.api.nvim_get_current_win()
-        vim.api.nvim_buf_set_lines(test_buf, 0, -1, false, data)
-        vim.api.nvim_win_set_buf(test_win, test_buf)
-        vim.bo[test_buf].filetype = 'testoutput'
-      end
-    end
-  })
-end
 
 -- formatting
 local function format_code()
@@ -1249,18 +1342,11 @@ vim.api.nvim_create_user_command("FormatCode", format_code, {
 })
 
 vim.keymap.set('n', '<leader>fm', format_code, { desc = 'Format file' })
-vim.keymap.set('n', '<leader>tr', run_tests, { desc = 'Run tests' })
 
--- LSP keymaps and completion setup
+-- LSP keymaps setup
 vim.api.nvim_create_autocmd('LspAttach', {
   callback = function(event)
     local opts = {buffer = event.buf}
-    local client = vim.lsp.get_client_by_id(event.data.client_id)
-
-    -- Enable completion if the server supports it
-    if client and client.server_capabilities.completionProvider then
-      vim.bo[event.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
-    end
 
     -- Navigation
     vim.keymap.set('n', 'gD', vim.lsp.buf.definition, opts)
@@ -1275,10 +1361,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Code actions
     vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, opts)
     vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
-
-    -- Completion keymaps
-    vim.keymap.set('i', '<C-Space>', '<C-x><C-o>', { buffer = event.buf, desc = "LSP completion" })
-    vim.keymap.set('i', '<C-n>', '<C-x><C-o>', { buffer = event.buf, desc = "Omnifunc completion" })
 
     -- Diagnostics
     vim.keymap.set('n', '<leader>nd', vim.diagnostic.goto_next, opts)

@@ -2,10 +2,15 @@
 
 ## Features
 
-- Optimized for performance through minimalism
-- Persistant floating terminal toggle with `<leader>tt`
-- Keybinding cheatsheet with `<leader>cc`
-- Telescope for fuzzy finding
+- **Performance**: Optimized for speed through minimalism
+- **Navigation**: Telescope for fuzzy finding files, grep, and buffers
+- **Testing**: Neotest integration with support for .NET, Vitest, and RSpec
+- **LSP Support**: Multi-language LSP with auto-completion and diagnostics
+- **Auto-completion**: nvim-cmp auto-completion
+- **Terminal**: Persistent floating terminal toggle with `<leader>tt`
+- **UI**: Custom statusline, transparent theme, and keybinding cheatsheet (`<leader>cc`)
+- **Treesitter**: Syntax highlighting and code understanding
+- **Mason**: Automatic LSP server management
 
 ## Prerequisites
 
