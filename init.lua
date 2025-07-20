@@ -51,72 +51,63 @@ local plugins = {
           "powershell_es"
         },
         automatic_installation = true,
-      })
-    end,
-  },
+        handlers = {
+          -- Default handler for all servers
+          function(server_name)
+            require("lspconfig")[server_name].setup({
+              capabilities = require("cmp_nvim_lsp").default_capabilities(),
+            })
+          end,
 
-  -- LSP Configuration
-  {
-    "neovim/nvim-lspconfig",
-    dependencies = { "williamboman/mason-lspconfig.nvim" },
-    config = function()
-      -- Setup LSP servers automatically
-      require("mason-lspconfig").setup_handlers({
-        -- Default handler for all servers
-        function(server_name)
-          require("lspconfig")[server_name].setup({
-            capabilities = require("cmp_nvim_lsp").default_capabilities(),
-          })
-        end,
-
-        -- Custom handler for lua_ls
-        ["lua_ls"] = function()
-          require("lspconfig").lua_ls.setup({
-            capabilities = require("cmp_nvim_lsp").default_capabilities(),
-            settings = {
-              Lua = {
-                runtime = { version = "LuaJIT" },
-                diagnostics = { globals = { "vim" } },
-                workspace = {
-                  library = vim.api.nvim_get_runtime_file("", true),
-                  checkThirdParty = false,
-                },
-                telemetry = { enable = false },
-              },
-            },
-          })
-        end,
-
-        -- Custom handler for TypeScript
-        ["ts_ls"] = function()
-          require("lspconfig").ts_ls.setup({
-            capabilities = require("cmp_nvim_lsp").default_capabilities(),
-            settings = {
-              typescript = {
-                inlayHints = {
-                  includeInlayParameterNameHints = 'literal',
-                  includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-                  includeInlayFunctionParameterTypeHints = true,
-                  includeInlayVariableTypeHints = true,
-                  includeInlayPropertyDeclarationTypeHints = true,
-                  includeInlayFunctionLikeReturnTypeHints = true,
-                  includeInlayEnumMemberValueHints = true,
+          -- Custom handler for lua_ls
+          ["lua_ls"] = function()
+            require("lspconfig").lua_ls.setup({
+              capabilities = require("cmp_nvim_lsp").default_capabilities(),
+              settings = {
+                Lua = {
+                  runtime = { version = "LuaJIT" },
+                  diagnostics = { globals = { "vim" } },
+                  workspace = {
+                    library = vim.api.nvim_get_runtime_file("", true),
+                    checkThirdParty = false,
+                  },
+                  telemetry = { enable = false },
                 },
               },
-              javascript = {
-                inlayHints = {
-                  includeInlayParameterNameHints = 'all',
-                  includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-                  includeInlayFunctionParameterTypeHints = true,
-                  includeInlayVariableTypeHints = true,
-                  includeInlayPropertyDeclarationTypeHints = true,
-                  includeInlayFunctionLikeReturnTypeHints = true,
-                  includeInlayEnumMemberValueHints = true,
+            })
+          end,
+
+          -- Custom handler for TypeScript
+          ["ts_ls"] = function()
+            require("lspconfig").ts_ls.setup({
+              capabilities = require("cmp_nvim_lsp").default_capabilities(),
+              settings = {
+                typescript = {
+                  inlayHints = {
+                    includeInlayParameterNameHints = 'literal',
+                    includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+                    includeInlayFunctionParameterTypeHints = true,
+                    includeInlayVariableTypeHints = true,
+                    includeInlayPropertyDeclarationTypeHints = true,
+                    includeInlayFunctionLikeReturnTypeHints = true,
+                    includeInlayEnumMemberValueHints = true,
+                  },
                 },
+                javascript = {
+                  inlayHints = {
+                    includeInlayParameterNameHints = 'all',
+                    includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+                    includeInlayFunctionParameterTypeHints = true,
+                    includeInlayVariableTypeHints = true,
+                    includeInlayPropertyDeclarationTypeHints = true,
+                    includeInlayFunctionLikeReturnTypeHints = true,
+                    includeInlayEnumMemberValueHints = true,
+                  },
+                }
               }
-            }
-          })
-        end,
+            })
+          end,
+        }
       })
     end,
   },
@@ -1191,7 +1182,88 @@ local function format_code()
       return
     end
   end
-
+  
+  -- C# formatting with dotnet format
+  if filetype == 'cs' or filename:match('%.cs$') or filename:match('%.csproj$') or filename:match('%.sln$') then
+    if vim.fn.executable('dotnet') == 1 then
+      local cmd
+      
+      if filename:match('%.sln$') then
+        -- For solution files, format the entire solution
+        cmd = {'dotnet', 'format', filename}
+      elseif filename:match('%.csproj$') then
+        -- For project files, format the entire project
+        cmd = {'dotnet', 'format', filename}
+      else
+        -- For .cs files, format just the file by specifying the workspace explicitly
+        local dir = vim.fn.expand('%:p:h')
+        local sln_files = vim.fn.glob(dir .. '/*.sln', false, true)
+        local csproj_files = vim.fn.glob(dir .. '/**/*.csproj', false, true)
+        
+        if #sln_files > 0 then
+          -- Use solution file as workspace
+          cmd = {'dotnet', 'format', sln_files[1], '--include', filename}
+        elseif #csproj_files > 0 then
+          -- Use project file as workspace  
+          cmd = {'dotnet', 'format', csproj_files[1], '--include', filename}
+        else
+          -- No workspace found, try formatting without workspace
+          cmd = {'dotnet', 'format', '--include', filename}
+        end
+      end
+      
+      local result = vim.fn.system(cmd)
+      
+      if vim.v.shell_error == 0 then
+        -- Reload the buffer to show formatted content
+        vim.cmd('edit!')
+        vim.api.nvim_win_set_cursor(0, cursor_pos)
+        print("C# formatted with dotnet format")
+        return
+      else
+        print("dotnet format error: " .. result)
+        return
+      end
+    else
+      print("dotnet CLI not found. Please install .NET SDK")
+      return
+    end
+  end
+  
+  -- PowerShell formatting with PSScriptAnalyzer
+  if filetype == 'ps1' or filetype == 'powershell' or filename:match('%.ps1$') or filename:match('%.psm1$') then
+    if vim.fn.executable('pwsh') == 1 or vim.fn.executable('powershell') == 1 then
+      local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+      local content = table.concat(lines, '\n')
+      
+      local ps_exe = vim.fn.executable('pwsh') == 1 and 'pwsh' or 'powershell'
+      local format_cmd = string.format(
+        '%s -NoProfile -Command "try { $content = @\'\n%s\n\'@; Invoke-Formatter -ScriptDefinition $content } catch { Write-Error $_.Exception.Message; exit 1 }"',
+        ps_exe, content:gsub("'", "''")
+      )
+      
+      local result = vim.fn.system(format_cmd)
+      
+      if vim.v.shell_error == 0 then
+        local formatted_lines = vim.split(result, '\n')
+        -- Remove trailing empty line if present
+        if formatted_lines[#formatted_lines] == '' then
+          table.remove(formatted_lines)
+        end
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, formatted_lines)
+        vim.api.nvim_win_set_cursor(0, cursor_pos)
+        print("PowerShell formatted with Invoke-Formatter")
+        return
+      else
+        print("PowerShell formatter error: " .. result)
+        print("Note: Install PSScriptAnalyzer module: Install-Module -Name PSScriptAnalyzer")
+        return
+      end
+    else
+      print("PowerShell not found. Please install PowerShell Core (pwsh) or Windows PowerShell")
+      return
+    end
+  end
 
   print("No formatter available for " .. filetype)
 end
