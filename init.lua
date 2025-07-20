@@ -1,3 +1,143 @@
+-- ============================================================================
+-- PLUGIN MANAGEMENT
+-- ============================================================================
+
+-- Bootstrap lazy.nvim
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+  local lazyrepo = "https://github.com/folke/lazy.nvim.git"
+  local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
+  if vim.v.shell_error ~= 0 then
+    vim.api.nvim_echo({
+      { "Failed to clone lazy.nvim:\n", "ErrorMsg" },
+      { out, "WarningMsg" },
+      { "\nPress any key to exit..." },
+    }, true, {})
+    vim.fn.getchar()
+    os.exit(1)
+  end
+end
+vim.opt.rtp:prepend(lazypath)
+
+-- Plugin specifications
+local plugins = {
+  -- Mason for LSP/tool management
+  {
+    "williamboman/mason.nvim",
+    cmd = "Mason",
+    config = function()
+      require("mason").setup({
+        ui = {
+          border = "rounded",
+          icons = {
+            package_installed = "✓",
+            package_pending = "➜",
+            package_uninstalled = "✗"
+          }
+        }
+      })
+    end,
+  },
+  {
+    "williamboman/mason-lspconfig.nvim",
+    dependencies = { "williamboman/mason.nvim" },
+    config = function()
+      require("mason-lspconfig").setup({
+        ensure_installed = { "lua_ls", "bashls" },
+        automatic_installation = true,
+      })
+    end,
+  },
+
+  -- Telescope
+  {
+    "nvim-telescope/telescope.nvim",
+    tag = "0.1.8",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    config = function()
+      require("telescope").setup({
+        defaults = {
+          prompt_prefix = " ",
+          selection_caret = " ",
+          path_display = { "truncate" },
+          file_ignore_patterns = {
+            "node_modules/.*",
+            "%.git/.*",
+            "%.DS_Store",
+            "target/.*",
+            "build/.*",
+            "dist/.*"
+          },
+          mappings = {
+            i = {
+              ["<C-u>"] = false,
+              ["<C-d>"] = false,
+            },
+          },
+        },
+        pickers = {
+          find_files = {
+            hidden = true,
+          },
+          live_grep = {
+            additional_args = function()
+              return {"--hidden"}
+            end
+          },
+        },
+      })
+    end,
+  },
+
+  -- Treesitter
+  {
+    "nvim-treesitter/nvim-treesitter",
+    build = ":TSUpdate",
+    config = function()
+      require("nvim-treesitter.configs").setup({
+        ensure_installed = {
+          "lua", "vim", "vimdoc", "query",
+          "javascript", "typescript", "tsx", "json",
+          "html", "css", "bash", "python", "c_sharp",
+          "markdown", "markdown_inline"
+        },
+        sync_install = false,
+        auto_install = true,
+        highlight = {
+          enable = true,
+          additional_vim_regex_highlighting = false,
+        },
+        indent = {
+          enable = true,
+        },
+        incremental_selection = {
+          enable = true,
+          keymaps = {
+            init_selection = "<C-space>",
+            node_incremental = "<C-space>",
+            scope_incremental = false,
+            node_decremental = "<bs>",
+          },
+        },
+      })
+    end,
+  },
+}
+
+-- Setup lazy.nvim
+require("lazy").setup(plugins, {
+  ui = {
+    border = "rounded",
+  },
+  checker = {
+    enabled = true,
+    notify = false,
+  },
+  change_detection = {
+    notify = false,
+  },
+})
+
 -- Key mappings
 vim.g.mapleader = " "                              -- Set leader key to space
 vim.g.maplocalleader = " "                         -- Set local leader key
@@ -77,7 +217,7 @@ vim.opt.guicursor = "n-v-c:block,i-ci-ve:block,r-cr:hor20,o:hor50,a:blinkwait700
 
 -- Folding settings
 vim.opt.foldmethod = "expr"                             -- Use expression for folding
---vim.wo.vim.foldexpr = "v:lua.vim.treesitter.foldexpr()" -- Use treesitter for folding
+vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"   -- Use treesitter for folding
 vim.opt.foldlevel = 99                                  -- Start with all folds open
 
 -- Split behavior
@@ -125,9 +265,16 @@ vim.keymap.set("v", "<A-k>", ":m '<-2<CR>gv=gv", { desc = "Move selection up" })
 vim.keymap.set("v", "<", "<gv", { desc = "Indent left and reselect" })
 vim.keymap.set("v", ">", ">gv", { desc = "Indent right and reselect" })
 
--- Quick file navigation
+-- Telescope keymaps
+vim.keymap.set("n", "<leader>ff", "<cmd>Telescope find_files<cr>", { desc = "Find files" })
+vim.keymap.set("n", "<leader>fg", "<cmd>Telescope live_grep<cr>", { desc = "Live grep" })
+vim.keymap.set("n", "<leader>fb", "<cmd>Telescope buffers<cr>", { desc = "Find buffers" })
+vim.keymap.set("n", "<leader>fh", "<cmd>Telescope help_tags<cr>", { desc = "Help tags" })
+vim.keymap.set("n", "<leader>fr", "<cmd>Telescope oldfiles<cr>", { desc = "Recent files" })
+vim.keymap.set("n", "<leader>fs", "<cmd>Telescope grep_string<cr>", { desc = "Find string under cursor" })
+
+-- Keep file explorer for directory browsing
 vim.keymap.set("n", "<leader>e", ":Explore<CR>", { desc = "Open file explorer" })
-vim.keymap.set("n", "<leader>ff", ":find ", { desc = "Find file" })
 
 -- Better J behavior
 vim.keymap.set("n", "J", "mzJ`z", { desc = "Join lines and keep cursor position" })
@@ -161,7 +308,12 @@ local function show_cheatsheet()
     "",
     "🗂️  NAVIGATION & FILES",
     "   <leader>e          Open file explorer",
-    "   <leader>ff         Find file",
+    "   <leader>ff         Find files (Telescope)",
+    "   <leader>fg         Live grep (Telescope)", 
+    "   <leader>fb         Find buffers (Telescope)",
+    "   <leader>fr         Recent files (Telescope)",
+    "   <leader>fh         Help tags (Telescope)",
+    "   <leader>fs         Find string under cursor",
     "   <leader>rc         Edit config",
     "",
     "🔍 SEARCH & MOVEMENT", 
@@ -305,6 +457,9 @@ local function setup_auto_completion()
 end
 
 setup_auto_completion()
+
+-- Create autocmd group
+local augroup = vim.api.nvim_create_augroup("UserConfig", { clear = true })
 
 -- Return to last edit position when opening files
 vim.api.nvim_create_autocmd("BufReadPost", {
