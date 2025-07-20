@@ -2,10 +2,10 @@
 
 ## Features
 
+- Optimized for performance through minimalism
 - Persistant floating terminal toggle with `<leader>tt`
 - Keybinding cheatsheet with `<leader>cc`
-- Basic editor settings optimized for performance
-- Minimal and fast configuration
+- Telescope for fuzzy finding
 
 ## Prerequisites
 
