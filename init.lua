@@ -226,6 +226,133 @@ local plugins = {
     end,
   },
 
+  -- Catppuccin theme
+  {
+    "catppuccin/nvim",
+    name = "catppuccin",
+    priority = 1000,
+    config = function()
+      require("catppuccin").setup({
+        flavour = "mocha",
+        background = {
+          light = "latte",
+          dark = "mocha",
+        },
+        transparent_background = true,
+        show_end_of_buffer = false,
+        term_colors = true,
+        dim_inactive = {
+          enabled = false,
+          shade = "dark",
+          percentage = 0.15,
+        },
+        no_italic = false,
+        no_bold = false,
+        no_underline = false,
+        styles = {
+          comments = { "italic" },
+          conditionals = { "italic" },
+          loops = {},
+          functions = {},
+          keywords = {},
+          strings = {},
+          variables = {},
+          numbers = {},
+          booleans = {},
+          properties = {},
+          types = {},
+          operators = {},
+        },
+        color_overrides = {},
+        custom_highlights = {},
+        integrations = {
+          cmp = true,
+          telescope = true,
+          treesitter = true,
+          mason = true,
+          native_lsp = {
+            enabled = true,
+            virtual_text = {
+              errors = { "italic" },
+              hints = { "italic" },
+              warnings = { "italic" },
+              information = { "italic" },
+            },
+            underlines = {
+              errors = { "underline" },
+              hints = { "underline" },
+              warnings = { "underline" },
+              information = { "underline" },
+            },
+          },
+        },
+      })
+    end,
+  },
+
+  -- Lualine statusline
+  {
+    "nvim-lualine/lualine.nvim",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    config = function()
+      require("lualine").setup({
+        options = {
+          theme = "catppuccin",
+          component_separators = { left = "", right = "" },
+          section_separators = { left = "", right = "" },
+          globalstatus = true,
+          disabled_filetypes = {
+            statusline = {},
+            winbar = {},
+          },
+        },
+        sections = {
+          lualine_a = { "mode" },
+          lualine_b = {
+            "branch",
+            "diff",
+            {
+              "diagnostics",
+              sources = { "nvim_lsp" },
+              symbols = { error = "✗ ", warn = "⚠ ", info = "ℹ ", hint = "💡 " },
+            },
+          },
+          lualine_c = {
+            {
+              "filename",
+              file_status = true,
+              newfile_status = false,
+              path = 1,
+            },
+          },
+          lualine_x = {
+            {
+              "filetype",
+              colored = true,
+              icon_only = false,
+            },
+            "encoding",
+            "fileformat",
+          },
+          lualine_y = { "progress" },
+          lualine_z = { "location" },
+        },
+        inactive_sections = {
+          lualine_a = {},
+          lualine_b = {},
+          lualine_c = { "filename" },
+          lualine_x = { "location" },
+          lualine_y = {},
+          lualine_z = {},
+        },
+        tabline = {},
+        winbar = {},
+        inactive_winbar = {},
+        extensions = { "mason", "lazy" },
+      })
+    end,
+  },
+
   -- nvim-cmp completion
   {
     "hrsh7th/nvim-cmp",
@@ -243,6 +370,10 @@ local plugins = {
       local luasnip = require("luasnip")
 
       cmp.setup({
+        completion = {
+          completeopt = "menu,menuone,noselect",
+          keyword_length = 1,
+        },
         window = {
           completion = {
             border = "rounded",
@@ -297,7 +428,10 @@ local plugins = {
           end, { "i", "s" }),
         }),
         sources = cmp.config.sources({
-          { name = "nvim_lsp" },
+          { 
+            name = "nvim_lsp",
+            trigger_characters = { ".", ":", "(", '"', "'", "/", "@", "*" }
+          },
           { name = "luasnip" },
         }, {
           { name = "buffer" },
@@ -354,17 +488,10 @@ vim.g.mapleader = " "                              -- Set leader key to space
 vim.g.maplocalleader = " "                         -- Set local leader key
 
 -- theme & transparency
-vim.cmd.colorscheme("unokai")
+vim.cmd.colorscheme("catppuccin")
 vim.api.nvim_set_hl(0, "Normal", { bg = "none" })
 vim.api.nvim_set_hl(0, "NormalNC", { bg = "none" })
 vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "none" })
-
--- nvim-cmp styling to match Monokai theme
-vim.api.nvim_set_hl(0, "CmpBorder", { bg = "none", fg = "#75715e" })
-vim.api.nvim_set_hl(0, "CmpDocBorder", { bg = "none", fg = "#75715e" })
-vim.api.nvim_set_hl(0, "PmenuSel", { bg = "#49483e", fg = "#f8f8f2" })
-vim.api.nvim_set_hl(0, "CmpItemAbbrMatch", { fg = "#a6e22e", bold = true })
-vim.api.nvim_set_hl(0, "CmpItemAbbrMatchFuzzy", { fg = "#a6e22e", bold = true })
 
 -- Basic settings
 vim.opt.number = true                              -- Line numbers
@@ -957,151 +1084,6 @@ local function smart_close_buffer()
 end
 vim.keymap.set('n', '<leader>bd', smart_close_buffer, { desc = 'Smart close buffer/tab' })
 
--- ============================================================================
--- STATUSLINE
--- ============================================================================
-
--- Git branch function
-local function git_branch()
-  local cmd
-  if vim.fn.has("win32") == 1 then
-    cmd = "git branch --show-current 2>nul"
-  else
-    cmd = "git branch --show-current 2>/dev/null"
-  end
-
-  local branch = vim.fn.system(cmd)
-  branch = vim.trim(branch)
-
-  if branch ~= "" then
-    return "  " .. branch .. " "
-  end
-  return ""
-end
-
--- File type with icon
-local function file_type()
-  local ft = vim.bo.filetype
-  local icons = {
-    lua = "[LUA]",
-    python = "[PY]",
-    javascript = "[JS]",
-    html = "[HTML]",
-    css = "[CSS]",
-    json = "[JSON]",
-    markdown = "[MD]",
-    vim = "[VIM]",
-    sh = "[SH]",
-    csharp = "[CSHARP]",
-    powershell = "[PWSH]",
-    javascript = "[JS]",
-    typescript = "[TS]",
-    javascriptreact = "[JSX]",
-    typescriptreact = "[TSX]"
-  }
-
-  if ft == "" then
-    return "  "
-  end
-
-  return (icons[ft] or ft)
-end
-
--- LSP status
-local function lsp_status()
-  local clients = vim.lsp.get_clients({ bufnr = 0 })
-  if #clients > 0 then
-    return "  LSP "
-  end
-  return ""
-end
-
--- Word count for text files
-local function word_count()
-  local ft = vim.bo.filetype
-  if ft == "markdown" or ft == "text" or ft == "tex" then
-    local words = vim.fn.wordcount().words
-    return "  " .. words .. " words "
-  end
-  return ""
-end
-
--- File size
-local function file_size()
-  local size = vim.fn.getfsize(vim.fn.expand('%'))
-  if size < 0 then return "" end
-  if size < 1024 then
-    return size .. "B "
-  elseif size < 1024 * 1024 then
-    return string.format("%.1fK", size / 1024)
-  else
-    return string.format("%.1fM", size / 1024 / 1024)
-  end
-end
-
--- Mode indicators with icons
-local function mode_icon()
-  local mode = vim.fn.mode()
-  local modes = {
-    n = "NORMAL",
-    i = "INSERT",
-    v = "VISUAL",
-    V = "V-LINE",
-    ["\22"] = "V-BLOCK",  -- Ctrl-V
-    c = "COMMAND",
-    s = "SELECT",
-    S = "S-LINE",
-    ["\19"] = "S-BLOCK",  -- Ctrl-S
-    R = "REPLACE",
-    r = "REPLACE",
-    ["!"] = "SHELL",
-    t = "TERMINAL"
-  }
-  return modes[mode] or "  " .. mode:upper()
-end
-
-_G.mode_icon = mode_icon
-_G.git_branch = git_branch
-_G.file_type = file_type
-_G.file_size = file_size
-_G.lsp_status = lsp_status
-
-vim.cmd([[
-  highlight StatusLineBold gui=bold cterm=bold
-]])
-
--- Function to change statusline based on window focus
-local function setup_dynamic_statusline()
-  vim.api.nvim_create_autocmd({"WinEnter", "BufEnter"}, {
-    callback = function()
-    vim.opt_local.statusline = table.concat {
-      "  ",
-      "%#StatusLineBold#",
-      "%{v:lua.mode_icon()}",
-      "%#StatusLine#",
-      " │ %f %h%m%r",
-      "%{v:lua.git_branch()}",
-      " │ ",
-      "%{v:lua.file_type()}",
-      " | ",
-      "%{v:lua.file_size()}",
-      " | ",
-      "%{v:lua.lsp_status()}",
-      "%=",                     -- Right-align everything after this
-      "%l:%c  %P ",             -- Line:Column and Percentage
-    }
-    end
-  })
-  vim.api.nvim_set_hl(0, "StatusLineBold", { bold = true })
-
-  vim.api.nvim_create_autocmd({"WinLeave", "BufLeave"}, {
-    callback = function()
-      vim.opt_local.statusline = "  %f %h%m%r │ %{v:lua.file_type()} | %=  %l:%c   %P "
-    end
-  })
-end
-
-setup_dynamic_statusline()
 
 
 -- Define test signs
