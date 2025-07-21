@@ -443,13 +443,13 @@ local plugins = {
       vim.g.copilot_no_tab_map = true
       vim.g.copilot_assume_mapped = true
       vim.g.copilot_tab_fallback = ""
-      
+
       -- Custom accept mapping
       vim.keymap.set("i", "<C-J>", 'copilot#Accept("\\<CR>")', {
         expr = true,
         replace_keycodes = false
       })
-      
+
       -- Navigation through suggestions
       vim.keymap.set("i", "<C-L>", "<Plug>(copilot-accept-word)")
       vim.keymap.set("i", "<C-K>", "<Plug>(copilot-next)")
@@ -533,7 +533,7 @@ local plugins = {
           end, { "i", "s" }),
         }),
         sources = cmp.config.sources({
-          { 
+          {
             name = "nvim_lsp",
             trigger_characters = { ".", ":", "(", '"', "'", "/", "@", "*" }
           },
@@ -1120,14 +1120,6 @@ local function FloatingTerminal()
   })
 end
 
--- Function to explicitly close the terminal
-local function CloseFloatingTerminal()
-  if terminal_state.is_open and vim.api.nvim_win_is_valid(terminal_state.win) then
-    vim.api.nvim_win_close(terminal_state.win, false)
-    terminal_state.is_open = false
-  end
-end
-
 -- Key mappings
 vim.keymap.set("n", "<leader>tt", FloatingTerminal, { noremap = true, silent = true, desc = "Toggle floating terminal" })
 vim.keymap.set("t", "<leader>tt", function()
@@ -1296,12 +1288,12 @@ local function format_code()
       return
     end
   end
-  
+
   -- C# formatting with dotnet format
   if filetype == 'cs' or filename:match('%.cs$') or filename:match('%.csproj$') or filename:match('%.sln$') then
     if vim.fn.executable('dotnet') == 1 then
       local cmd
-      
+
       if filename:match('%.sln$') then
         -- For solution files, format the entire solution
         cmd = {'dotnet', 'format', filename}
@@ -1313,7 +1305,7 @@ local function format_code()
         local dir = vim.fn.expand('%:p:h')
         local sln_files = vim.fn.glob(dir .. '/*.sln', false, true)
         local csproj_files = vim.fn.glob(dir .. '/**/*.csproj', false, true)
-        
+
         if #sln_files > 0 then
           -- Use solution file as workspace
           cmd = {'dotnet', 'format', sln_files[1], '--include', filename}
@@ -1325,9 +1317,9 @@ local function format_code()
           cmd = {'dotnet', 'format', '--include', filename}
         end
       end
-      
+
       local result = vim.fn.system(cmd)
-      
+
       if vim.v.shell_error == 0 then
         -- Reload the buffer to show formatted content
         vim.cmd('edit!')
@@ -1343,21 +1335,21 @@ local function format_code()
       return
     end
   end
-  
+
   -- PowerShell formatting with PSScriptAnalyzer
   if filetype == 'ps1' or filetype == 'powershell' or filename:match('%.ps1$') or filename:match('%.psm1$') then
     if vim.fn.executable('pwsh') == 1 or vim.fn.executable('powershell') == 1 then
       local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
       local content = table.concat(lines, '\n')
-      
+
       local ps_exe = vim.fn.executable('pwsh') == 1 and 'pwsh' or 'powershell'
       local format_cmd = string.format(
         '%s -NoProfile -Command "try { $content = @\'\n%s\n\'@; Invoke-Formatter -ScriptDefinition $content } catch { Write-Error $_.Exception.Message; exit 1 }"',
         ps_exe, content:gsub("'", "''")
       )
-      
+
       local result = vim.fn.system(format_cmd)
-      
+
       if vim.v.shell_error == 0 then
         local formatted_lines = vim.split(result, '\n')
         -- Remove trailing empty line if present
