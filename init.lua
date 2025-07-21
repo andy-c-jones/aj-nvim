@@ -457,6 +457,14 @@ local plugins = {
     end,
   },
 
+  -- Highlighted yank
+  {
+    "machakann/vim-highlightedyank",
+    config = function()
+      vim.g.highlightedyank_highlight_duration = 200
+    end,
+  },
+
   -- nvim-cmp completion
   {
     "hrsh7th/nvim-cmp",
