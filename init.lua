@@ -376,13 +376,13 @@ local plugins = {
         },
         window = {
           completion = {
-            border = "rounded",
-            winhighlight = "Normal:Normal,FloatBorder:CmpBorder,CursorLine:PmenuSel,Search:None",
+            border = "none",
+            winhighlight = "Normal:CmpPmenu,CursorLine:PmenuSel,Search:None",
             scrollbar = false,
           },
           documentation = {
-            border = "rounded",
-            winhighlight = "Normal:Normal,FloatBorder:CmpDocBorder",
+            border = "none",
+            winhighlight = "Normal:CmpDocNormal",
           },
         },
         formatting = {
@@ -492,6 +492,13 @@ vim.cmd.colorscheme("catppuccin")
 vim.api.nvim_set_hl(0, "Normal", { bg = "none" })
 vim.api.nvim_set_hl(0, "NormalNC", { bg = "none" })
 vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "none" })
+
+-- nvim-cmp transparent styling
+vim.api.nvim_set_hl(0, "CmpPmenu", { bg = "none" })
+vim.api.nvim_set_hl(0, "CmpDocNormal", { bg = "none" })
+vim.api.nvim_set_hl(0, "CmpBorder", { bg = "none" })
+vim.api.nvim_set_hl(0, "CmpDocBorder", { bg = "none" })
+vim.api.nvim_set_hl(0, "PmenuSel", { bg = "#313244" }) -- Subtle selection highlight for visibility
 
 -- Basic settings
 vim.opt.number = true                              -- Line numbers
