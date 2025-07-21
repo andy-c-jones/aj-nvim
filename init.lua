@@ -353,6 +353,27 @@ local plugins = {
     end,
   },
 
+  -- GitHub Copilot
+  {
+    "github/copilot.vim",
+    config = function()
+      vim.g.copilot_no_tab_map = true
+      vim.g.copilot_assume_mapped = true
+      vim.g.copilot_tab_fallback = ""
+      
+      -- Custom accept mapping
+      vim.keymap.set("i", "<C-J>", 'copilot#Accept("\\<CR>")', {
+        expr = true,
+        replace_keycodes = false
+      })
+      
+      -- Navigation through suggestions
+      vim.keymap.set("i", "<C-L>", "<Plug>(copilot-accept-word)")
+      vim.keymap.set("i", "<C-K>", "<Plug>(copilot-next)")
+      vim.keymap.set("i", "<C-H>", "<Plug>(copilot-previous)")
+    end,
+  },
+
   -- nvim-cmp completion
   {
     "hrsh7th/nvim-cmp",
@@ -364,6 +385,7 @@ local plugins = {
       "hrsh7th/cmp-cmdline",
       "L3MON4D3/LuaSnip",
       "saadparwaiz1/cmp_luasnip",
+      "hrsh7th/cmp-nvim-lsp-signature-help",
     },
     config = function()
       local cmp = require("cmp")
@@ -432,6 +454,7 @@ local plugins = {
             name = "nvim_lsp",
             trigger_characters = { ".", ":", "(", '"', "'", "/", "@", "*" }
           },
+          { name = "nvim_lsp_signature_help" },
           { name = "luasnip" },
         }, {
           { name = "buffer" },
